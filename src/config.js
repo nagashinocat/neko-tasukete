@@ -15,3 +15,5 @@ export const SCENES = [
   { from: 2000, id: 'stratosphere', label: '成層圏' },
   { from: 10000, id: 'space', label: '宇宙' },
 ];
+export const COLLAPSE_SEC = 1.5;  // 崩れ演出の長さ
+export const TAP_GUARD_MS = 60;   // これより短い間隔のタップは二重発火として無視
