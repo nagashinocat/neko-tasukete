@@ -26,16 +26,16 @@ test('まとめ飛ばしでルーレット段を含んでも回る', () => {
   const t = hit({ ...createTower(fixed(0)), step: 28, combo: 19 }, P, fixed(0)); // 3段
   assert.equal(t.roulette, true);
 });
-test('爆弾は10段、ミサイルは30段吹き飛ばし、ルーレットは回さない', () => {
+test('爆弾は100段、ミサイルは300段吹き飛ばし、ルーレットは回さない', () => {
   const t0 = { ...createTower(fixed(0)), step: 25 };
   const b = applyItem(t0, 'bomb', fixed(0));
-  assert.equal(b.step, 35);
-  assert.equal(b.blasted, 10);
+  assert.equal(b.step, 125);
+  assert.equal(b.blasted, 100);
   assert.equal(b.roulette, false);
-  assert.equal(b.rouletteAt, 65);
+  assert.equal(b.rouletteAt, 155);
   const m = applyItem(t0, 'missile', fixed(0));
-  assert.equal(m.step, 55);
-  assert.equal(m.blasted, 30);
+  assert.equal(m.step, 325);
+  assert.equal(m.blasted, 300);
   assert.equal(applyItem({ ...t0, step: 9990 }, 'missile', fixed(0)).step, 10000);
 });
 test('お守り:1回だけ外してもコンボも傾きもそのまま', () => {

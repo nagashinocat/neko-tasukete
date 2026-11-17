@@ -142,11 +142,14 @@ export function createRenderer() {
       fx.itemToast = { item, at: now };
       if (item === 'bomb' || item === 'missile') {
         const n = game.tower.blasted || 0;
-        const gap = item === 'bomb' ? 22 : 12;
+        // 何百段でも、爆弾は約0.7秒・ミサイルは約1.2秒で一気に飛ばす。飛ぶ絵は最大40個に間引く
+        const total = item === 'bomb' ? 700 : 1200;
+        const gap = Math.max(1, total / Math.max(1, n));
         const first = game.tower.step - n;
         fx.group = { at: now, n, gap };
-        for (let i = 0; i < n; i++) fx.popped.push({ at: now + i * gap, color: blockColor(first + i), lane: i * 7 + (item === 'bomb' ? 1 : 0), side: item === 'missile' && i % 2 ? -1 : 1, boom: item === 'bomb' });
-        if (fx.popped.length > 40) fx.popped.splice(0, fx.popped.length - 40);
+        const every = Math.max(1, Math.ceil(n / 40));
+        for (let i = 0; i < n; i += every) fx.popped.push({ at: now + i * gap, color: blockColor(first + i), lane: i * 7 + (item === 'bomb' ? 1 : 0), side: item === 'missile' && (i / every) % 2 ? -1 : 1, boom: item === 'bomb' });
+        if (fx.popped.length > 60) fx.popped.splice(0, fx.popped.length - 60);
         if (item === 'bomb') fx.boomAt = now; else fx.missileAt = now;
       }
       if (item === 'paint') {
@@ -509,7 +512,7 @@ export function createRenderer() {
       ctx.fill();
     }
     // ミサイル
-    const m = (now - (fx.missileAt ?? -1e9)) / 650;
+    const m = (now - (fx.missileAt ?? -1e9)) / 1100;
     if (m < 1) {
       const y = L.groundY - m * (L.groundY + 120);
       ctx.save();

@@ -2,7 +2,7 @@ import { createStorage } from './storage.js';
 import { createGame } from './game.js';
 import { createRenderer, resultButtons, muteButton, drawMuteButton, POP_GAP_MS } from './render.js';
 import { createOpening } from './opening.js';
-import { unlockAudio, sfx, bgm, setMuted, onAudioInterrupted } from './sound.js';
+import { unlockAudio, sfx, bgm, setMuted, onAudioInterrupted, hush } from './sound.js';
 import { prepareShareImage } from './shareCard.js';
 import { preloadCats } from './art.js';
 import { shareBlob } from './share.js';
@@ -70,7 +70,7 @@ let sharing = false;
 const beatClock = () => ({ beat: game.beats + (Math.min(100, Math.max(0, performance.now() - last)) / 60000) * game.bpm, bpm: game.bpm });
 
 // アプリから離れたら一時停止(ホーム画面・コントロールセンター・電話など)
-const pauseGame = () => { game.pause(); if (bgm.playing) bgm.stop(); };
+const pauseGame = () => { hush(); game.pause(); if (bgm.playing) bgm.stop(); };
 document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
 window.addEventListener('blur', pauseGame);
 window.addEventListener('pagehide', pauseGame);

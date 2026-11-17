@@ -31,7 +31,36 @@ export function unlockAudio() {
       watchState();
     }
     if (ac.state === 'suspended') ac.resume();
+    wake();
   } catch { ac = null; }
+}
+
+// 鳴っている(鳴る予定の)音。アプリから離れるときに全部止める
+const live = new Set();
+function track(...nodes) {
+  for (const n of nodes) {
+    live.add(n);
+    n.onended = () => live.delete(n);
+  }
+}
+
+// アプリから離れる瞬間:すぐ無音にして、予約ずみの音も止める
+export function hush() {
+  if (!ac) return;
+  try {
+    master.gain.cancelScheduledValues(ac.currentTime);
+    master.gain.setValueAtTime(0, ac.currentTime);
+    master.gain.value = 0;
+  } catch { /* noop */ }
+  for (const n of live) { try { n.stop(0); } catch { /* 止め済み */ } }
+  live.clear();
+}
+
+// 戻ってきてタップしたとき:音を元に戻す
+function wake() {
+  if (!ac || !master) return;
+  master.gain.cancelScheduledValues(ac.currentTime);
+  master.gain.setValueAtTime(muted ? 0 : 1, ac.currentTime);
 }
 
 export function setMuted(m) {
@@ -55,6 +84,7 @@ function osc(bus, t, type, f0, f1, peak, attack, decay) {
   env(g, t, peak, attack, decay);
   o.connect(g).connect(bus);
   o.start(t);
+  track(o);
   o.stop(t + attack + decay + 0.05);
 }
 
@@ -69,6 +99,7 @@ function burst(bus, t, filterType, freq, q, peak, decay) {
   env(g, t, peak, 0.002, decay);
   s.connect(f).connect(g).connect(bus);
   s.start(t, Math.random() * 0.3);
+  track(s);
   s.stop(t + decay + 0.05);
 }
 
@@ -187,6 +218,7 @@ function bass(midi, t, dur) {
   o2.connect(g2).connect(lp);
   lp.connect(g).connect(bgmBus);
   o.start(t); o2.start(t);
+  track(o, o2);
   o.stop(t + dur + 0.05); o2.stop(t + dur + 0.05);
 }
 
@@ -211,6 +243,7 @@ function keys(notes, t, dur) {
     o.connect(g).connect(bgmBus);
     bell.connect(gb).connect(bgmBus);
     o.start(t); bell.start(t);
+    track(o, bell);
     o.stop(t + dur + 0.05); bell.stop(t + dur + 0.05);
   }
 }
@@ -271,7 +304,7 @@ export function onAudioInterrupted(cb) { interruptedCb = cb; }
 // タブを裏に回したら止め、戻ったら続ける
 document.addEventListener('visibilitychange', () => {
   if (!ac) return;
-  if (document.hidden) ac.suspend();
+  if (document.hidden) { hush(); ac.suspend(); }
   else ac.resume();
 });
 
