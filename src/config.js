@@ -1,0 +1,17 @@
+// 調整用の数値。試遊で調整する前提の初期値。
+export const TOTAL_STEPS = 10000;
+export const PERFECT_HALF_WIDTH = 0.06; // 針位置 -1..1 のうち中心±この幅が「ぴったり」
+export const BAND_HALF_WIDTH = 0.25;    // 見た目の帯の半幅
+export const TILT_PER_OFFSET = 0.35;    // ずれ1あたりに増える傾き
+export const TILT_RECOVER = 0.12;       // ぴったりで戻る傾き
+export const TILT_LIMIT = 1.0;          // これ以上で崩れる
+export const SPEED_BASE = 0.6;          // 往復/秒
+export const SPEED_MAX = 3.0;
+export const SPEED_RAMP_STEPS = 400;
+export const SCENES = [
+  { from: 0, id: 'ground', label: '地上' },
+  { from: 100, id: 'sky', label: '空' },
+  { from: 500, id: 'clouds', label: '雲の上' },
+  { from: 2000, id: 'stratosphere', label: '成層圏' },
+  { from: 10000, id: 'space', label: '宇宙' },
+];
