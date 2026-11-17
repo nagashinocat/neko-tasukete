@@ -1,1 +1,74 @@
-// entry
+import { createStorage } from './storage.js';
+import { createGame } from './game.js';
+import { createRenderer, resultButtons } from './render.js';
+import { createOpening } from './opening.js';
+import { unlockAudio, sfx } from './sound.js';
+import { shareResult } from './shareCard.js';
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const storage = createStorage();
+const game = createGame(storage);
+const renderer = createRenderer();
+const opening = createOpening({ canSkip: storage.hasSeenOpening(), onDone: () => game.finishOpening() });
+window.__game = game; // 動作確認用
+
+const view = { width: 0, height: 0, dpr: 1 };
+function resize() {
+  view.dpr = Math.min(window.devicePixelRatio || 1, 3);
+  view.width = window.innerWidth;
+  view.height = window.innerHeight;
+  canvas.width = Math.round(view.width * view.dpr);
+  canvas.height = Math.round(view.height * view.dpr);
+}
+window.addEventListener('resize', resize);
+resize();
+
+let last = performance.now();
+let prevHit = null;
+let prevState = game.state;
+
+function afterInput() {
+  if (game.lastHitMs !== prevHit && game.lastHitMs != null) {
+    prevHit = game.lastHitMs;
+    if (game.lastJudge?.perfect) sfx.perfect(); else sfx.pon();
+  }
+  if (game.state === 'collapsing' && prevState !== 'collapsing') sfx.crash();
+  prevState = game.state;
+}
+
+const inside = (b, x, y) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
+let sharing = false;
+
+canvas.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  unlockAudio();
+  const now = performance.now();
+  if (game.state === 'result') {
+    const B = resultButtons(view);
+    if (inside(B.retry, e.clientX, e.clientY)) { game.retry(); prevHit = null; prevState = game.state; }
+    else if (inside(B.share, e.clientX, e.clientY) && !sharing) {
+      sharing = true;
+      shareResult(game.tower.step, game.newBest, game.tower.reachedTop).finally(() => { sharing = false; });
+    }
+    return;
+  }
+  // 判定はタップした瞬間の針の位置で行う
+  game.update((now - last) / 1000);
+  last = now;
+  game.tap(now);
+  afterInput();
+}, { passive: false });
+
+function frame(now) {
+  const dt = (now - last) / 1000;
+  last = now;
+  if (game.state === 'opening') opening.update(dt);
+  game.update(dt);
+  afterInput();
+  ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+  if (game.state === 'opening') opening.draw(ctx, view);
+  else renderer.render(ctx, game, view, now);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
