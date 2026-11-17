@@ -110,3 +110,32 @@ test('砂時計中は針がゆっくり', () => {
   g.tower = { ...g.tower, slowTaps: 5 };
   assert.ok(g.targetBpm() < normal);
 });
+
+test('アプリから離れると一時停止し、タップで再開する(そのタップでは叩かない)', () => {
+  const g = createGame(createStorage(mem()));
+  g.finishOpening();
+  g.update(0.05);
+  const beats = g.beats;
+  g.pause();
+  assert.equal(g.state, 'paused');
+  g.update(1);
+  assert.equal(g.beats, beats);
+  g.tap(5000);
+  assert.equal(g.state, 'playing');
+  assert.equal(g.tower.step, 0);
+});
+test('ルーレット中に離れても、再開するとルーレットに戻る', () => {
+  const g = createGame(createStorage(mem()), () => 0);
+  g.finishOpening();
+  g.tower = { ...g.tower, step: 30, rouletteAt: 30 };
+  g.beats = 1;
+  g.tap(1000);
+  g.pause();
+  g.tap(2000);
+  assert.equal(g.state, 'roulette');
+});
+test('結果画面やオープニングでは一時停止しない', () => {
+  const g = createGame(createStorage(mem()));
+  g.pause();
+  assert.equal(g.state, 'opening');
+});

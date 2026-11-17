@@ -28,6 +28,7 @@ export function unlockAudio() {
     if (!ac) {
       ac = new (window.AudioContext || window.webkitAudioContext)();
       setup();
+      watchState();
     }
     if (ac.state === 'suspended') ac.resume();
   } catch { ac = null; }
@@ -73,6 +74,7 @@ function burst(bus, t, filterType, freq, q, peak, decay) {
 
 // 木の段を槌で打つ「コン!」
 function knock(t, pitch = 1) {
+  if (ac.state !== 'running') return;
   burst(sfxBus, t, 'bandpass', 2600 * pitch, 2.5, 0.5, 0.025);       // 当たった瞬間のカッ
   osc(sfxBus, t, 'sine', 820 * pitch, 560 * pitch, 0.45, 0.002, 0.09); // 木の響き
   osc(sfxBus, t, 'triangle', 240 * pitch, 150 * pitch, 0.25, 0.002, 0.12); // 胴の鳴り
@@ -179,6 +181,12 @@ function flute(midi, t, dur) {
 function schedule() {
   if (!ac || !getClock) return;
   const { beat, bpm } = getClock();
+  // 音が止められている間(コントロールセンター・ホーム画面など)は予約しない。
+  // 予約すると、戻ったときにたまった音がいっせいに鳴ってピーッとなる
+  if (ac.state !== 'running') {
+    nextStep = Math.ceil(beat * 4);
+    return;
+  }
   const lookahead = 0.12;
   const latency = ac.outputLatency || ac.baseLatency || 0; // 聞こえる瞬間を針に合わせる
   const stepDur = 60 / bpm / 4;
@@ -212,10 +220,17 @@ export const bgm = {
     if (!timer) return;
     clearInterval(timer);
     timer = null;
-    if (ac) bgmBus.gain.setTargetAtTime(0, ac.currentTime, 0.15);
+    if (!ac) return;
+    bgmBus.gain.cancelScheduledValues(ac.currentTime);
+    if (ac.state === 'running') bgmBus.gain.setTargetAtTime(0, ac.currentTime, 0.15);
+    else bgmBus.gain.value = 0;
   },
   get playing() { return timer !== null; },
 };
+
+// 音が止められた(電話・コントロールセンター・ほかのアプリ)ことを知らせる
+let interruptedCb = null;
+export function onAudioInterrupted(cb) { interruptedCb = cb; }
 
 // タブを裏に回したら止め、戻ったら続ける
 document.addEventListener('visibilitychange', () => {
@@ -223,3 +238,11 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) ac.suspend();
   else ac.resume();
 });
+
+function watchState() {
+  if (!ac || ac.__watched) return;
+  ac.__watched = true;
+  ac.addEventListener('statechange', () => {
+    if (ac.state !== 'running' && interruptedCb) interruptedCb();
+  });
+}

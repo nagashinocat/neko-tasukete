@@ -695,7 +695,16 @@ export function createRenderer() {
       drawEffects(ctx, L, now);
       drawSplats(ctx, L, game);
       drawItemToast(ctx, L, now);
-      if (game.state === 'roulette') drawRoulette(ctx, L, game, now);
+      if (game.state === 'roulette' || (game.state === 'paused' && game.pausedFrom === 'roulette')) drawRoulette(ctx, L, game, now);
+      if (game.state === 'paused') {
+        ctx.fillStyle = 'rgba(5,6,20,0.7)';
+        ctx.fillRect(0, 0, L.w, L.h);
+        text(ctx, 'ひと休み中', L.cx, L.h * 0.42, 34, '#fff', 'center', 900);
+        ctx.save();
+        ctx.globalAlpha = 0.6 + 0.4 * Math.sin(now / 250);
+        text(ctx, 'タップで再開', L.cx, L.h * 0.5, 22, '#ffe066', 'center', 900);
+        ctx.restore();
+      }
       if (game.state === 'result') drawResult(ctx, L, game, view, now);
     },
   };

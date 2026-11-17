@@ -2,7 +2,7 @@ import { createStorage } from './storage.js';
 import { createGame } from './game.js';
 import { createRenderer, resultButtons, muteButton, drawMuteButton, POP_GAP_MS } from './render.js';
 import { createOpening } from './opening.js';
-import { unlockAudio, sfx, bgm, setMuted } from './sound.js';
+import { unlockAudio, sfx, bgm, setMuted, onAudioInterrupted } from './sound.js';
 import { prepareShareImage } from './shareCard.js';
 import { preloadCats } from './art.js';
 import { shareBlob } from './share.js';
@@ -67,7 +67,14 @@ function afterInput() {
 const inside = (b, x, y) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
 let sharing = false;
 // BGMが読む拍の時計:最後のフレームからの経過ぶんも足して、いまの拍を出す
-const beatClock = () => ({ beat: game.beats + (Math.max(0, performance.now() - last) / 60000) * game.bpm, bpm: game.bpm });
+const beatClock = () => ({ beat: game.beats + (Math.min(100, Math.max(0, performance.now() - last)) / 60000) * game.bpm, bpm: game.bpm });
+
+// アプリから離れたら一時停止(ホーム画面・コントロールセンター・電話など)
+const pauseGame = () => { game.pause(); if (bgm.playing) bgm.stop(); };
+document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
+window.addEventListener('blur', pauseGame);
+window.addEventListener('pagehide', pauseGame);
+onAudioInterrupted(pauseGame);
 let shareImage = null;
 
 canvas.addEventListener('pointerdown', (e) => {

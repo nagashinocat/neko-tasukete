@@ -6,7 +6,7 @@ import { bpmForStep, easeBpm } from './tempo.js';
 const ROULETTE_HOLD_SEC = 1.0; // 止まったアイテムを見せる時間
 import { createTower, hit } from './tower.js';
 
-// 画面状態: 'opening' | 'playing' | 'roulette' | 'collapsing' | 'result'
+// 画面状態: 'opening' | 'playing' | 'roulette' | 'paused' | 'collapsing' | 'result'
 export function createGame(storage, rng = Math.random) {
   const finish = () => {
     game.state = 'result';
@@ -35,6 +35,7 @@ export function createGame(storage, rng = Math.random) {
     resultTime: 0,
     get resultReady() { return this.state === 'result' && this.resultTime >= RESULT_GUARD_SEC; },
     lastTapMs: -Infinity,
+    pausedFrom: null,
 
     update(dtSec) {
       if (this.state === 'playing' || this.state === 'roulette') {
@@ -71,6 +72,10 @@ export function createGame(storage, rng = Math.random) {
         if (storage.hasSeenOpening()) this.finishOpening();
         return;
       }
+      if (this.state === 'paused') {
+        this.state = this.pausedFrom; // 再開。このタップでは叩かない
+        return;
+      }
       if (this.state === 'roulette') {
         stopRoulette(this.roulette, rng);
         return;
@@ -89,6 +94,13 @@ export function createGame(storage, rng = Math.random) {
         this.roulette = createRoulette();
         this.rouletteHold = 0;
       }
+    },
+
+    // アプリから離れたとき(ホーム画面・コントロールセンターなど)
+    pause() {
+      if (this.state !== 'playing' && this.state !== 'roulette') return;
+      this.pausedFrom = this.state;
+      this.state = 'paused';
     },
 
     finishOpening() {
