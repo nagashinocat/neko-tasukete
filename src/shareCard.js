@@ -74,42 +74,8 @@ export function drawShareCard(step, isBest) {
   return c;
 }
 
-function pageUrl() {
-  return location.href.split('#')[0];
-}
-
-export function shareText(step) {
-  return step >= TOTAL_STEPS
-    ? `だるま落としで宇宙まで到達!(${fmt(step)}段)`
-    : `だるま落としで${fmt(step)}段まで到達!`;
-}
-
-// 画像つき共有ができればそれを使い、できなければ画像を保存する
-export async function shareResult(step, isBest) {
+// 結果カードの画像を作る(結果画面に入ったときに先に作っておく)
+export function prepareShareImage(step, isBest) {
   const canvas = drawShareCard(step, isBest);
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-  const name = `daruma-otoshi-${step}.png`;
-  const text = shareText(step);
-  if (blob && typeof File === 'function') {
-    const file = new File([blob], name, { type: 'image/png' });
-    try {
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], text: `${text}\n${pageUrl()}` });
-        return 'shared';
-      }
-    } catch (e) {
-      if (e && e.name === 'AbortError') return 'cancelled';
-      // それ以外の失敗は保存に切り替える
-    }
-  }
-  if (!blob) return 'cancelled';
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
-  return 'downloaded';
+  return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
 }

@@ -3,7 +3,9 @@ import { createGame } from './game.js';
 import { createRenderer, resultButtons } from './render.js';
 import { createOpening } from './opening.js';
 import { unlockAudio, sfx } from './sound.js';
-import { shareResult } from './shareCard.js';
+import { prepareShareImage } from './shareCard.js';
+import { shareBlob } from './share.js';
+import { tapTime } from './input.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -34,28 +36,38 @@ function afterInput() {
     if (game.lastJudge?.perfect) sfx.perfect(); else sfx.pon();
   }
   if (game.state === 'collapsing' && prevState !== 'collapsing') sfx.crash();
+  if (game.state === 'result' && prevState !== 'result') {
+    shareImage = null;
+    const step = game.tower.step;
+    prepareShareImage(step, game.newBest).then((blob) => { if (game.state === 'result' && game.tower.step === step) shareImage = blob; });
+  }
   prevState = game.state;
 }
 
 const inside = (b, x, y) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
 let sharing = false;
+let shareImage = null;
 
 canvas.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   unlockAudio();
-  const now = performance.now();
+  const now = tapTime(e, performance.now());
   if (game.state === 'result') {
+    if (!game.resultReady) return; // 連打のまま「もう一回」を押してしまわないように
     const B = resultButtons(view);
     if (inside(B.retry, e.clientX, e.clientY)) { game.retry(); prevHit = null; prevState = game.state; }
     else if (inside(B.share, e.clientX, e.clientY) && !sharing) {
       sharing = true;
-      shareResult(game.tower.step, game.newBest).finally(() => { sharing = false; });
+      const go = shareImage
+        ? shareBlob(shareImage, game.tower.step)
+        : prepareShareImage(game.tower.step, game.newBest).then((b) => (b ? shareBlob(b, game.tower.step) : 'cancelled'));
+      go.finally(() => { sharing = false; });
     }
     return;
   }
   // 判定はタップした瞬間の針の位置で行う
   game.update((now - last) / 1000);
-  last = now;
+  last = Math.max(last, now);
   game.tap(now);
   afterInput();
 }, { passive: false });

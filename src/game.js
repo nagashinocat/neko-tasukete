@@ -1,4 +1,4 @@
-import { COLLAPSE_SEC, TAP_GUARD_MS } from './config.js';
+import { COLLAPSE_SEC, TAP_GUARD_MS, RESULT_GUARD_SEC } from './config.js';
 import { needlePosition, advancePhase, judge } from './gauge.js';
 import { speedForStep } from './tempo.js';
 import { createTower, hit } from './tower.js';
@@ -7,6 +7,7 @@ import { createTower, hit } from './tower.js';
 export function createGame(storage) {
   const finish = () => {
     game.state = 'result';
+    game.resultTime = 0;
     game.newBest = storage.saveBest(game.tower.step);
     game.best = storage.getBest();
   };
@@ -19,6 +20,8 @@ export function createGame(storage) {
     lastJudge: null,
     lastHitMs: null,     // 最後に段が抜けた時刻(演出用)
     collapseTime: 0,
+    resultTime: 0,
+    get resultReady() { return this.state === 'result' && this.resultTime >= RESULT_GUARD_SEC; },
     lastTapMs: -Infinity,
 
     update(dtSec) {
@@ -27,6 +30,8 @@ export function createGame(storage) {
       } else if (this.state === 'collapsing') {
         this.collapseTime += Math.max(dtSec, 0);
         if (this.collapseTime >= COLLAPSE_SEC) finish();
+      } else if (this.state === 'result') {
+        this.resultTime += Math.max(dtSec, 0);
       }
     },
 

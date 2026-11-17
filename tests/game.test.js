@@ -65,3 +65,14 @@ test('もう一回はオープニングなしで最初から', () => {
   assert.equal(g.tower.step, 0);
   assert.equal(g.newBest, false);
 });
+test('結果画面に入った直後はボタンが効かない', () => {
+  const g = createGame(createStorage(mem()));
+  g.finishOpening();
+  g.tower = { ...g.tower, tilt: TILT_LIMIT - 0.001 };
+  g.phase = 0;
+  g.tap(1000); g.update(2);
+  assert.equal(g.state, 'result');
+  assert.equal(g.resultReady, false);
+  g.update(0.6);
+  assert.equal(g.resultReady, true);
+});
