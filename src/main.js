@@ -15,7 +15,6 @@ const game = createGame(storage);
 const renderer = createRenderer();
 const opening = createOpening({ canSkip: storage.hasSeenOpening(), onDone: () => game.finishOpening() });
 window.__game = game; // 動作確認用
-preloadCats();
 let muted = storage.isMuted();
 setMuted(muted);
 
@@ -116,4 +115,8 @@ function frame(now) {
   drawMuteButton(ctx, muted);
   requestAnimationFrame(frame);
 }
-requestAnimationFrame(frame);
+// ねこの画像を読みこんでから始める(オープニングで最初からねこが見えるように)
+preloadCats().then(() => {
+  last = performance.now();
+  requestAnimationFrame(frame);
+});

@@ -32,7 +32,7 @@ export function drawBlock(ctx, cx, cy, w, h, color) {
   ctx.stroke();
 }
 
-// 塔のてっぺんにいるねこ(scared=こわがり、happy=クリアのニコニコ)。画像が読めるまではだるまの頭で代用
+// 塔のてっぺんにいるねこ(scared=こわがり、happy=クリアのニコニコ)
 const catImgs = {};
 function catImg(mood) {
   if (typeof Image === 'undefined') return null;
@@ -43,15 +43,21 @@ function catImg(mood) {
   }
   return catImgs[mood];
 }
-export function preloadCats() { catImg('scared'); catImg('happy'); }
+// ねこの画像を読みこむ。読みこめたら(または失敗・時間切れでも)解決する
+export function preloadCats(timeoutMs = 4000) {
+  const wait = (im) => new Promise((resolve) => {
+    if (!im || (im.complete && im.naturalWidth)) return resolve();
+    im.addEventListener('load', resolve, { once: true });
+    im.addEventListener('error', resolve, { once: true });
+  });
+  const all = Promise.all([wait(catImg('scared')), wait(catImg('happy'))]);
+  return Promise.race([all, new Promise((r) => setTimeout(r, timeoutMs))]);
+}
 
 // (cx, bottom) は足もとの中央、width は横幅
 export function drawCat(ctx, cx, bottom, width, mood = 'scared', now = 0) {
   const im = catImg(mood);
-  if (!im || !im.complete || !im.naturalWidth) {
-    drawDarumaHead(ctx, cx, bottom, width * 0.7);
-    return;
-  }
+  if (!im || !im.complete || !im.naturalWidth) return; // 読みこみ前は何も描かない
   const h = (width * im.naturalHeight) / im.naturalWidth;
   const shake = mood === 'scared' ? Math.sin(now / 35) * 1.5 : 0; // ぷるぷる
   ctx.drawImage(im, cx - width / 2 + shake, bottom - h, width, h);
