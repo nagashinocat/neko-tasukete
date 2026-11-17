@@ -1,4 +1,4 @@
-import { BPM_MIN, BPM_MAX, TEMPO_STEP_BLOCKS, BPM_RAMP_STEPS, BPM_RATE } from './config.js';
+import { BPM_MIN, BPM_MAX, BPM_CURVE_TOP, TEMPO_STEP_BLOCKS, BPM_RAMP_STEPS, BPM_RATE } from './config.js';
 
 // テンポの段階(1から)。500段ごとに1つ上がる
 export function tempoLevel(step) {
@@ -9,7 +9,7 @@ export function tempoLevel(step) {
 // 上がり幅は最初の段階ほど大きく、上へ行くほど小さくなり、BPM_MAX に近づく
 export function bpmForStep(step) {
   const base = (tempoLevel(step) - 1) * TEMPO_STEP_BLOCKS;
-  return Math.round(BPM_MIN + (BPM_MAX - BPM_MIN) * (1 - Math.exp(-base / BPM_RAMP_STEPS)));
+  return Math.min(BPM_MAX, Math.round(BPM_MIN + (BPM_CURVE_TOP - BPM_MIN) * (1 - Math.exp(-base / BPM_RAMP_STEPS))));
 }
 
 // 今のテンポを目標へ近づける(段階が変わるときは0.5秒ほどでさっと切り替わる)

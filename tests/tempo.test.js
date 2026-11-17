@@ -13,8 +13,10 @@ test('500段ごとに1段階ずつテンポが上がる', () => {
   assert.equal(tempoLevel(0), 1);
   assert.equal(tempoLevel(1000), 3);
 });
-test('上限は240', () => {
-  assert.ok(bpmForStep(10000) >= 235);
+test('上限は218(5000段から先はずっと218)', () => {
+  assert.equal(BPM_MAX, 218);
+  assert.equal(bpmForStep(5000), 218);
+  assert.equal(bpmForStep(10000), 218);
   assert.ok(bpmForStep(20000) <= BPM_MAX);
 });
 test('段階が変わるときは短い時間でさっと切り替わる', () => {
