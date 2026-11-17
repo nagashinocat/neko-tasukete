@@ -83,12 +83,14 @@ export const sfx = {
     if (!ac) return;
     knock(ac.currentTime, 0.94 + Math.random() * 0.12);
   },
-  perfect() {
+  // n段まとめて飛ぶときはパンパンパンと続けて鳴らす(gapSec 間隔)
+  perfect(n = 1, gapSec = 0.055) {
     if (!ac) return;
     const t = ac.currentTime;
-    knock(t, 1.12);
-    osc(sfxBus, t + 0.02, 'sine', 1568, 1568, 0.18, 0.003, 0.45); // チーン
-    osc(sfxBus, t + 0.02, 'sine', 2349, 2349, 0.09, 0.003, 0.3);
+    for (let i = 0; i < n; i++) knock(t + i * gapSec, 1.12 + i * 0.04);
+    const end = t + (n - 1) * gapSec + 0.02;
+    osc(sfxBus, end, 'sine', 1568, 1568, 0.18, 0.003, 0.45); // チーン
+    osc(sfxBus, end, 'sine', 2349, 2349, 0.09, 0.003, 0.3);
   },
   crash() {
     if (!ac) return;

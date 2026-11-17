@@ -10,6 +10,7 @@ import {
 const fmt = (n) => n.toLocaleString('ja-JP');
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const easeOut = (t) => 1 - (1 - t) * (1 - t);
+export const POP_GAP_MS = 55; // まとめて飛ぶときの1段ごとの間隔(パンパンパン)
 
 export function layout(view) {
   const { width: w, height: h } = view;
@@ -113,8 +114,12 @@ export function createRenderer() {
     if (game.lastHitMs !== fx.prevHitMs && game.lastHitMs != null) {
       fx.prevHitMs = game.lastHitMs;
       fx.hammerAt = now;
-      fx.popped.push({ at: now, color: blockColor(game.tower.step - 1) });
-      if (fx.popped.length > 8) fx.popped.shift();
+      const n = Math.max(1, game.tower.popped || 1);
+      const first = game.tower.step - n;
+      fx.group = { at: now, n };
+      for (let i = 0; i < n; i++) fx.popped.push({ at: now + i * POP_GAP_MS, color: blockColor(first + i), lane: i });
+      if (fx.popped.length > 24) fx.popped.splice(0, fx.popped.length - 24);
+      if (game.tower.combo >= 2) fx.comboAt = now;
       if (game.lastJudge?.perfect) fx.perfectAt = now;
       else {
         const pos = needlePosition(game.phase);
@@ -132,6 +137,7 @@ export function createRenderer() {
       fx.prevHitMs = null;
       fx.sceneId = 'ground';
       fx.popped = [];
+      fx.group = null;
     }
   }
 
@@ -208,8 +214,16 @@ export function createRenderer() {
     const t = now / 1000;
     const speed = speedForStep(tower.step);
     const rows = Math.ceil(L.groundY / L.bh) + 2;
-    const sinceHit = fx.prevHitMs == null ? 1 : (now - fx.prevHitMs) / 90;
-    const drop = L.bh * (1 - easeOut(clamp01(sinceHit)));
+    // まとめて飛ぶときは、まだ弾かれていない段を下に残し、1段ずつ落とす
+    let pending = 0;
+    let drop = 0;
+    if (fx.group) {
+      const el = now - fx.group.at;
+      const launched = Math.min(fx.group.n, Math.floor(el / POP_GAP_MS) + 1);
+      pending = fx.group.n - launched;
+      const sinceLast = (el - (launched - 1) * POP_GAP_MS) / 90;
+      drop = L.bh * (1 - easeOut(clamp01(sinceLast)));
+    }
     const wobble = Math.exp(-(now - fx.wobbleAt) / 400) * 10 * Math.sin((now - fx.wobbleAt) / 40);
     const swayAmp = 2 + speed * 2.5 + tower.tilt * 22;
     const lean = (tower.tilt / TILT_LIMIT) * 0.14 * fx.leanDir;
@@ -225,7 +239,7 @@ export function createRenderer() {
       ctx.translate(-L.cx, -L.groundY);
     }
     for (let r = 0; r < rows; r++) {
-      const idx = tower.step + r;
+      const idx = tower.step - pending + r;
       if (idx > TOTAL_STEPS) break;
       const heightPx = r * L.bh;
       const frac = heightPx / L.groundY;
@@ -246,9 +260,10 @@ export function createRenderer() {
     // 弾き飛ばされた段
     for (const p of fx.popped) {
       const s = (now - p.at) / 1000;
-      if (s > 0.8) continue;
-      const x = L.cx + s * 900;
-      const y = L.groundY - L.bh / 2 - 60 * s + 900 * s * s;
+      if (s < 0 || s > 0.8) continue;
+      const up = 60 + (p.lane % 4) * 70; // まとめて飛ぶときは少しずつ違う高さへ
+      const x = L.cx + s * (900 - (p.lane % 3) * 120);
+      const y = L.groundY - L.bh / 2 - up * s + 900 * s * s;
       ctx.save();
       ctx.globalAlpha = 1 - s / 0.8;
       ctx.translate(x, y);
@@ -260,7 +275,12 @@ export function createRenderer() {
 
   function drawHammer(ctx, L, now) {
     // 横から一番下の段を打つ槌
-    const s = clamp01((now - fx.hammerAt) / 160);
+    let hitAt = fx.hammerAt;
+    if (fx.group) {
+      const launched = Math.min(fx.group.n, Math.floor((now - fx.group.at) / POP_GAP_MS) + 1);
+      hitAt = fx.group.at + (launched - 1) * POP_GAP_MS;
+    }
+    const s = clamp01((now - hitAt) / (fx.group && fx.group.n > 1 ? POP_GAP_MS : 160));
     const swing = s < 0.35 ? s / 0.35 : 1 - (s - 0.35) / 0.65; // 0=構え 1=打った瞬間
     const headW = L.bh * 0.9;
     const headH = L.bh * 1.15;
@@ -334,6 +354,23 @@ export function createRenderer() {
     text(ctx, `${fmt(step)}段`, L.cx, 58, 44);
     text(ctx, `宇宙まであと ${fmt(stepsToSpace(step))}段`, L.cx, 98, 16, '#e6f0ff', 'center', 700);
     text(ctx, `自己ベスト ${fmt(game.best)}`, L.w - 14, 22, 13, '#ffe9a8', 'right', 700);
+    // コンボ(右側)
+    const combo = game.tower.combo || 0;
+    if (combo >= 2 && game.state === 'playing') {
+      const ps = clamp01((now - (fx.comboAt ?? 0)) / 220);
+      const scale = 1 + (1 - ps) * 0.35;
+      const x = L.w - Math.max(56, (L.w - L.bw) / 4);
+      const y = L.h * 0.42;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(scale, scale);
+      const hot = combo >= 10;
+      text(ctx, String(combo), 0, 0, combo >= 100 ? 34 : 40, hot ? '#ffdf5e' : '#fff', 'center', 900);
+      text(ctx, 'コンボ', 0, 30, 15, '#fff', 'center', 800);
+      const n = Math.min(10, 1 + Math.floor(combo / 10));
+      if (n >= 2) text(ctx, `${n}段とばし`, 0, 54, 14, '#ffb3c6', 'center', 800);
+      ctx.restore();
+    }
     if (game.state === 'playing' && step === 0) {
       const a = 0.6 + 0.4 * Math.sin(now / 250);
       ctx.save();

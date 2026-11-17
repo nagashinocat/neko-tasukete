@@ -1,6 +1,6 @@
 import { createStorage } from './storage.js';
 import { createGame } from './game.js';
-import { createRenderer, resultButtons, muteButton, drawMuteButton } from './render.js';
+import { createRenderer, resultButtons, muteButton, drawMuteButton, POP_GAP_MS } from './render.js';
 import { createOpening } from './opening.js';
 import { unlockAudio, sfx, bgm, setMuted } from './sound.js';
 import { speedForStep } from './tempo.js';
@@ -36,7 +36,7 @@ let prevState = game.state;
 function afterInput() {
   if (game.lastHitMs !== prevHit && game.lastHitMs != null) {
     prevHit = game.lastHitMs;
-    if (game.lastJudge?.perfect) sfx.perfect(); else sfx.pon();
+    if (game.lastJudge?.perfect) sfx.perfect(game.tower.popped || 1, POP_GAP_MS / 1000); else sfx.pon();
   }
   if (game.state === 'collapsing' && prevState !== 'collapsing') sfx.crash();
   if (game.state === 'result' && prevState !== 'result') {

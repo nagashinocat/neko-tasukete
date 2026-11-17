@@ -18,3 +18,5 @@ export const SCENES = [
 export const COLLAPSE_SEC = 1.5;  // 崩れ演出の長さ
 export const TAP_GUARD_MS = 60;   // これより短い間隔のタップは二重発火として無視
 export const RESULT_GUARD_SEC = 0.5; // 結果画面に入ってからボタンが効くまで
+export const COMBO_PER_EXTRA = 10; // 10コンボごとに1回で飛ぶ段が1つ増える
+export const MAX_POP = 10;         // 1回で飛ぶ段の上限
