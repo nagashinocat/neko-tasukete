@@ -1,5 +1,5 @@
 // 効果音とBGM(WebAudioでその場で鳴らす)。音が出ない端末でもそのまま遊べる。
-import { BAR_STEPS, pattern, stepsToSchedule } from './music.js';
+import { BAR_STEPS, pattern, stepsToSchedule, swingOffsetBeats } from './music.js';
 
 let ac = null;
 let master = null;
@@ -137,45 +137,82 @@ export const sfx = {
   },
 };
 
-// ---- BGM(お囃子風。ゲームの拍の時計に合わせて鳴らす:毎拍のドンで針が端に着く) ----
+// ---- BGM(ジャズ・トリオ風。ゲームの拍の時計に合わせて鳴らす:毎拍のバスドラで針が端に着く) ----
 const midiHz = (m) => 440 * Math.pow(2, (m - 69) / 12);
 let timer = null;
 let nextStep = 0;
 let getClock = null; // () => { beat, bpm }
 
-function drum(kind, t) {
-  if (kind === 'D' || kind === 'd') {
-    const p = kind === 'D' ? 0.7 : 0.4;
-    osc(bgmBus, t, 'sine', 120, 52, p, 0.004, 0.32);
-    burst(bgmBus, t, 'lowpass', 600, 0.8, p * 0.35, 0.06);
-  } else if (kind === 'k') {
-    burst(bgmBus, t, 'bandpass', 3200, 3, 0.22, 0.03);
-    osc(bgmBus, t, 'square', 1250, 1250, 0.05, 0.001, 0.025);
-  }
+// ---- ジャズ・トリオの楽器 ----
+// バスドラ:叩くタイミング。いちばん大きく、アタックをはっきり
+function kick(t) {
+  osc(bgmBus, t, 'sine', 150, 42, 1.0, 0.002, 0.28);
+  osc(bgmBus, t, 'triangle', 95, 45, 0.35, 0.002, 0.18);
+  burst(bgmBus, t, 'bandpass', 3200, 1.2, 0.35, 0.012); // ビーターのアタック
 }
 
-// 篠笛っぽい音(ゆれのある正弦波)
-function flute(midi, t, dur) {
-  const o = ac.createOscillator();
-  const lfo = ac.createOscillator();
-  const lfoGain = ac.createGain();
-  const g = ac.createGain();
+// ライドシンバル(小さめ)
+function ride(t, accent) {
+  const p = accent ? 0.055 : 0.035;
+  burst(bgmBus, t, 'highpass', 6500, 0.7, p, 0.32);
+  osc(bgmBus, t, 'square', 3520, 3520, p * 0.25, 0.001, 0.18);
+  osc(bgmBus, t, 'square', 5280, 5280, p * 0.18, 0.001, 0.14);
+}
+
+function hat(t) {
+  burst(bgmBus, t, 'highpass', 7500, 0.8, 0.05, 0.035);
+}
+
+// ウッドベース:はじいた音
+function bass(midi, t, dur) {
   const f = midiHz(midi);
-  o.type = 'sine';
-  o.frequency.setValueAtTime(f * 0.985, t);
-  o.frequency.exponentialRampToValueAtTime(f, t + 0.04);
-  lfo.frequency.value = 5.5;
-  lfoGain.gain.value = f * 0.006;
-  lfo.connect(lfoGain).connect(o.frequency);
+  const o = ac.createOscillator();
+  const o2 = ac.createOscillator();
+  const lp = ac.createBiquadFilter();
+  const g = ac.createGain();
+  o.type = 'triangle';
+  o2.type = 'sine';
+  o.frequency.value = f;
+  o2.frequency.value = f * 2;
+  lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(900, t);
+  lp.frequency.exponentialRampToValueAtTime(260, t + dur);
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(0.12, t + 0.03);
-  g.gain.setValueAtTime(0.12, t + Math.max(0.04, dur - 0.05));
-  g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.04);
-  o.connect(g).connect(bgmBus);
-  o.start(t);
-  lfo.start(t);
-  o.stop(t + dur + 0.1);
-  lfo.stop(t + dur + 0.1);
+  g.gain.exponentialRampToValueAtTime(0.32, t + 0.008);
+  g.gain.exponentialRampToValueAtTime(0.12, t + 0.12);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  const g2 = ac.createGain();
+  g2.gain.value = 0.25;
+  o.connect(lp);
+  o2.connect(g2).connect(lp);
+  lp.connect(g).connect(bgmBus);
+  o.start(t); o2.start(t);
+  o.stop(t + dur + 0.05); o2.stop(t + dur + 0.05);
+}
+
+// エレピ(ローズ)っぽいやわらかい和音
+function keys(notes, t, dur) {
+  for (const m of notes) {
+    const f = midiHz(m);
+    const o = ac.createOscillator();
+    const bell = ac.createOscillator();
+    const g = ac.createGain();
+    const gb = ac.createGain();
+    o.type = 'sine';
+    bell.type = 'sine';
+    o.frequency.value = f;
+    bell.frequency.value = f * 4;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.045, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.018, t + 0.25);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    gb.gain.setValueAtTime(0.012, t);
+    gb.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
+    o.connect(g).connect(bgmBus);
+    bell.connect(gb).connect(bgmBus);
+    o.start(t); bell.start(t);
+    o.stop(t + dur + 0.05); bell.stop(t + dur + 0.05);
+  }
 }
 
 function schedule() {
@@ -189,19 +226,18 @@ function schedule() {
   }
   const lookahead = 0.12;
   const latency = ac.outputLatency || ac.baseLatency || 0; // 聞こえる瞬間を針に合わせる
-  const stepDur = 60 / bpm / 4;
   for (const { step, inSec } of stepsToSchedule(nextStep, beat, bpm, lookahead)) {
-    const t = Math.max(ac.currentTime, ac.currentTime + inSec - latency);
     const k = step % BAR_STEPS;
-    const d = pattern.drum[k];
-    if (d) drum(d, t);
-    const bar = pattern.melody[Math.floor(step / BAR_STEPS) % pattern.melody.length];
-    const note = bar[k];
-    if (typeof note === 'number') {
-      let len = 1;
-      while (k + len < BAR_STEPS && bar[k + len] === '~') len++;
-      flute(note, t, len * stepDur * 0.95);
-    }
+    const bar = Math.floor(step / BAR_STEPS) % pattern.chords.length;
+    // バスドラはずらさない(叩くタイミングそのもの)。ほかは裏をスウィング
+    const tOn = Math.max(ac.currentTime, ac.currentTime + inSec - latency);
+    const tSw = Math.max(ac.currentTime, tOn + swingOffsetBeats(k) * (60 / bpm));
+    if (pattern.kick[k]) kick(tOn);
+    if (pattern.ride[k]) ride(tSw, pattern.ride[k] === 'R');
+    if (pattern.hat[k]) hat(tSw);
+    const b = pattern.bass[bar][k];
+    if (typeof b === 'number') bass(b, tOn, (60 / bpm) * 0.95);
+    if (pattern.comp[k]) keys(pattern.chords[bar], tSw, k === 0 ? (60 / bpm) * 1.4 : (60 / bpm) * 2.2);
   }
   nextStep = Math.max(nextStep, Math.ceil((beat + lookahead * bpm / 60) * 4));
 }
