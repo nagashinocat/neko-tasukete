@@ -2,7 +2,7 @@ import { TOTAL_STEPS, SCENES, TILT_LIMIT, COLLAPSE_SEC } from './config.js';
 import { needlePosition, zoneWidths } from './gauge.js';
 import { sceneForStep, stepsToSpace } from './scenery.js';
 import {
-  FONT, blockColor, drawBlock, drawDarumaHead, roundRect, SKY_COLORS, mixColor,
+  FONT, blockColor, drawBlock, drawCat, roundRect, SKY_COLORS, mixColor,
   drawStars, drawCloud, seeded, drawRouletteBlock, drawGlue, drawSplat,
 } from './art.js';
 import { ITEMS, ITEM_INFO } from './items.js';
@@ -277,7 +277,7 @@ export function createRenderer() {
         y += ct * ct * 60 * frac;
       }
       if (idx === TOTAL_STEPS) {
-        drawDarumaHead(ctx, x, y + L.bh / 2, L.bw * 0.95);
+        drawCat(ctx, x, y + L.bh / 2 + 4, L.bw * 1.25, tower.reachedTop ? 'happy' : 'scared', now);
         break;
       }
       if (idx === tower.rouletteAt && pending === 0) drawRouletteBlock(ctx, x, y, L.bw, L.bh, now);
@@ -472,16 +472,17 @@ export function createRenderer() {
     ctx.fillText(label, b.x + b.w / 2, b.y + b.h / 2 + 1);
   }
 
-  function drawResult(ctx, L, game, view) {
+  function drawResult(ctx, L, game, view, now) {
     ctx.fillStyle = 'rgba(5,6,20,0.62)';
     ctx.fillRect(0, 0, L.w, L.h);
     const top = game.tower.reachedTop;
     if (top) {
-      drawDarumaHead(ctx, L.cx, L.h * 0.3, Math.min(L.w * 0.4, 160));
+      drawCat(ctx, L.cx, L.h * 0.31, Math.min(L.w * 0.55, 240), 'happy');
       text(ctx, '宇宙到達!', L.cx, L.h * 0.36, 40, '#ffe066');
       text(ctx, '伝説のだるま落とし名人', L.cx, L.h * 0.42, 20, '#fff');
     } else {
-      text(ctx, 'ガラガラ…', L.cx, L.h * 0.22, 22, '#ffd0d0');
+      drawCat(ctx, L.cx, L.h * 0.2, Math.min(L.w * 0.34, 140), 'scared', now);
+      text(ctx, 'ガラガラ…', L.cx, L.h * 0.23, 22, '#ffd0d0');
       text(ctx, `${fmt(game.tower.step)}段`, L.cx, L.h * 0.32, 60, '#fff');
       text(ctx, 'まで到達!', L.cx, L.h * 0.39, 22, '#fff');
     }
@@ -632,7 +633,7 @@ export function createRenderer() {
       drawSplats(ctx, L, game);
       drawItemToast(ctx, L, now);
       if (game.state === 'roulette') drawRoulette(ctx, L, game, now);
-      if (game.state === 'result') drawResult(ctx, L, game, view);
+      if (game.state === 'result') drawResult(ctx, L, game, view, now);
     },
   };
 }

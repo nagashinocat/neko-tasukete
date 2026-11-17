@@ -1,6 +1,6 @@
 import { layout } from './render.js';
 import {
-  FONT, blockColor, drawBlock, drawDarumaHead, SKY_COLORS, mixColor, drawStars, drawCloud, seeded, roundRect,
+  FONT, blockColor, drawBlock, drawCat, SKY_COLORS, mixColor, drawStars, drawCloud, seeded, roundRect,
 } from './art.js';
 
 const HOLD = 1.4;    // 宇宙のだるまの頭を見せる時間
@@ -88,7 +88,7 @@ export function createOpening({ onDone, canSkip }) {
       }
       const headBottom = L.groundY - rows * L.bh + off;
       if (headBottom > -L.bw && headBottom < L.h + L.bw * 1.2) {
-        drawDarumaHead(ctx, L.cx, headBottom, L.bw * 0.95);
+        drawCat(ctx, L.cx, headBottom + 4, L.bw * 1.25, 'scared', time * 1000);
       }
 
       // 雲を突き抜ける(手前の雲は速く流れる)

@@ -32,6 +32,31 @@ export function drawBlock(ctx, cx, cy, w, h, color) {
   ctx.stroke();
 }
 
+// 塔のてっぺんにいるねこ(scared=こわがり、happy=クリアのニコニコ)。画像が読めるまではだるまの頭で代用
+const catImgs = {};
+function catImg(mood) {
+  if (typeof Image === 'undefined') return null;
+  if (!catImgs[mood]) {
+    const im = new Image();
+    im.src = new URL(`../assets/cat-${mood}.png`, import.meta.url).href;
+    catImgs[mood] = im;
+  }
+  return catImgs[mood];
+}
+export function preloadCats() { catImg('scared'); catImg('happy'); }
+
+// (cx, bottom) は足もとの中央、width は横幅
+export function drawCat(ctx, cx, bottom, width, mood = 'scared', now = 0) {
+  const im = catImg(mood);
+  if (!im || !im.complete || !im.naturalWidth) {
+    drawDarumaHead(ctx, cx, bottom, width * 0.7);
+    return;
+  }
+  const h = (width * im.naturalHeight) / im.naturalWidth;
+  const shake = mood === 'scared' ? Math.sin(now / 35) * 1.5 : 0; // ぷるぷる
+  ctx.drawImage(im, cx - width / 2 + shake, bottom - h, width, h);
+}
+
 // だるまの頭。(cx, bottom) は頭の下端中央、size は横幅
 export function drawDarumaHead(ctx, cx, bottom, size) {
   const r = size / 2;

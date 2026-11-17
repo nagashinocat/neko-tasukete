@@ -1,6 +1,6 @@
 import { TOTAL_STEPS } from './config.js';
 import { sceneForStep, stepsToSpace } from './scenery.js';
-import { FONT, blockColor, drawBlock, drawDarumaHead, SKY_COLORS, drawStars, drawCloud, roundRect } from './art.js';
+import { FONT, blockColor, drawBlock, drawCat, SKY_COLORS, drawStars, drawCloud, roundRect } from './art.js';
 
 const fmt = (n) => n.toLocaleString('ja-JP');
 const TITLE = 'だるま落とし';
@@ -34,7 +34,7 @@ export function drawShareCard(step, isBest) {
   const headBottom = 330;
   const rows = top ? Math.floor((S - 60 - headBottom) / bh) : 14;
   for (let r = 0; r < rows; r++) drawBlock(ctx, cx, S - 60 - bh / 2 - r * bh, bw, bh, blockColor(step + r));
-  if (top) drawDarumaHead(ctx, cx, S - 60 - rows * bh, 250);
+  if (top) drawCat(ctx, cx, S - 60 - rows * bh + 6, 330, 'happy');
 
   // 文字(右側)
   const tx = 760;

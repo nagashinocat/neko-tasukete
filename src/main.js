@@ -4,6 +4,7 @@ import { createRenderer, resultButtons, muteButton, drawMuteButton, POP_GAP_MS }
 import { createOpening } from './opening.js';
 import { unlockAudio, sfx, bgm, setMuted } from './sound.js';
 import { prepareShareImage } from './shareCard.js';
+import { preloadCats } from './art.js';
 import { shareBlob } from './share.js';
 import { tapTime } from './input.js';
 
@@ -14,6 +15,7 @@ const game = createGame(storage);
 const renderer = createRenderer();
 const opening = createOpening({ canSkip: storage.hasSeenOpening(), onDone: () => game.finishOpening() });
 window.__game = game; // 動作確認用
+preloadCats();
 let muted = storage.isMuted();
 setMuted(muted);
 
