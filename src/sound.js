@@ -1,5 +1,5 @@
 // 効果音とBGM(WebAudioでその場で鳴らす)。音が出ない端末でもそのまま遊べる。
-import { BAR_STEPS, bgmTempo, pattern } from './music.js';
+import { BAR_STEPS, pattern, stepsToSchedule } from './music.js';
 
 let ac = null;
 let master = null;
@@ -135,13 +135,11 @@ export const sfx = {
   },
 };
 
-// ---- BGM(お囃子風。テンポはゲームの速さに合わせる) ----
+// ---- BGM(お囃子風。ゲームの拍の時計に合わせて鳴らす:毎拍のドンで針が端に着く) ----
 const midiHz = (m) => 440 * Math.pow(2, (m - 69) / 12);
 let timer = null;
-let nextTime = 0;
-let stepIdx = 0;
-let barIdx = 0;
-let bpm = bgmTempo(0);
+let nextStep = 0;
+let getClock = null; // () => { beat, bpm }
 
 function drum(kind, t) {
   if (kind === 'D' || kind === 'd') {
@@ -179,33 +177,32 @@ function flute(midi, t, dur) {
 }
 
 function schedule() {
-  if (!ac) return;
-  while (nextTime < ac.currentTime + 0.12) {
-    const stepDur = 60 / bpm / 4;
-    const d = pattern.drum[stepIdx];
-    if (d) drum(d, nextTime);
-    const bar = pattern.melody[barIdx];
-    const note = bar[stepIdx];
+  if (!ac || !getClock) return;
+  const { beat, bpm } = getClock();
+  const lookahead = 0.12;
+  const latency = ac.outputLatency || ac.baseLatency || 0; // 聞こえる瞬間を針に合わせる
+  const stepDur = 60 / bpm / 4;
+  for (const { step, inSec } of stepsToSchedule(nextStep, beat, bpm, lookahead)) {
+    const t = Math.max(ac.currentTime, ac.currentTime + inSec - latency);
+    const k = step % BAR_STEPS;
+    const d = pattern.drum[k];
+    if (d) drum(d, t);
+    const bar = pattern.melody[Math.floor(step / BAR_STEPS) % pattern.melody.length];
+    const note = bar[k];
     if (typeof note === 'number') {
       let len = 1;
-      while (stepIdx + len < BAR_STEPS && bar[stepIdx + len] === '~') len++;
-      flute(note, nextTime, len * stepDur * 0.95);
-    }
-    nextTime += stepDur;
-    stepIdx++;
-    if (stepIdx >= BAR_STEPS) {
-      stepIdx = 0;
-      barIdx = (barIdx + 1) % pattern.melody.length;
+      while (k + len < BAR_STEPS && bar[k + len] === '~') len++;
+      flute(note, t, len * stepDur * 0.95);
     }
   }
+  nextStep = Math.max(nextStep, Math.ceil((beat + lookahead * bpm / 60) * 4));
 }
 
 export const bgm = {
-  start() {
+  start(clock) {
     if (!ac || timer) return;
-    stepIdx = 0;
-    barIdx = 0;
-    nextTime = ac.currentTime + 0.05;
+    getClock = clock;
+    nextStep = Math.ceil(clock().beat * 4);
     bgmBus.gain.cancelScheduledValues(ac.currentTime);
     bgmBus.gain.setTargetAtTime(0.55, ac.currentTime, 0.05);
     timer = setInterval(schedule, 25);
@@ -217,7 +214,6 @@ export const bgm = {
     timer = null;
     if (ac) bgmBus.gain.setTargetAtTime(0, ac.currentTime, 0.15);
   },
-  setSpeed(speed) { bpm = bgmTempo(speed); },
   get playing() { return timer !== null; },
 };
 

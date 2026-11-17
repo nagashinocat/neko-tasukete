@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createGame } from '../src/game.js';
 import { createStorage } from '../src/storage.js';
-import { TILT_LIMIT, SPEED_BASE } from '../src/config.js';
+import { TILT_LIMIT, BPM_MIN } from '../src/config.js';
 
 const mem = () => { const m = new Map(); return { getItem: k => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)) }; };
 
@@ -29,7 +29,7 @@ test('崩れ演出中・結果画面のタップでは段が増えない', () =>
   const g = createGame(createStorage(mem()));
   g.finishOpening();
   g.tower = { ...g.tower, tilt: TILT_LIMIT - 0.001 };
-  g.phase = 0; // 端=ずれ最大
+  g.beats = 0.5; // 拍のちょうど裏=ずれ最大
   g.tap(1000);
   assert.equal(g.state, 'collapsing');
   const s = g.tower.step;
@@ -43,13 +43,13 @@ test('長いフレームでも針はワープしない', () => {
   const g = createGame(createStorage(mem()));
   g.finishOpening();
   g.update(10);
-  assert.ok(g.phase <= SPEED_BASE * 0.1 + 1e-9);
+  assert.ok(g.beats <= (BPM_MIN / 60) * 0.1 + 1e-9);
 });
 test('結果で自己ベスト更新', () => {
   const g = createGame(createStorage(mem()));
   g.finishOpening();
   g.tower = { ...g.tower, step: 41, tilt: TILT_LIMIT - 0.001 };
-  g.phase = 0;
+  g.beats = 0.5;
   g.tap(1000); g.update(2);
   assert.equal(g.best, 42);
   assert.equal(g.newBest, true);
@@ -58,7 +58,7 @@ test('もう一回はオープニングなしで最初から', () => {
   const g = createGame(createStorage(mem()));
   g.finishOpening();
   g.tower = { ...g.tower, step: 10, tilt: TILT_LIMIT - 0.001 };
-  g.phase = 0;
+  g.beats = 0.5;
   g.tap(1000); g.update(2);
   g.retry();
   assert.equal(g.state, 'playing');
@@ -69,7 +69,7 @@ test('結果画面に入った直後はボタンが効かない', () => {
   const g = createGame(createStorage(mem()));
   g.finishOpening();
   g.tower = { ...g.tower, tilt: TILT_LIMIT - 0.001 };
-  g.phase = 0;
+  g.beats = 0.5;
   g.tap(1000); g.update(2);
   assert.equal(g.state, 'result');
   assert.equal(g.resultReady, false);
@@ -81,7 +81,7 @@ test('ルーレット段を抜くとルーレット→タップで止まる→�
   const g = createGame(createStorage(mem()), () => 0);
   g.finishOpening();
   g.tower = { ...g.tower, step: 30, rouletteAt: 30 };
-  g.phase = 0.25; // ぴったり
+  g.beats = 1; // ぴったり
   g.tap(1000);
   assert.equal(g.state, 'roulette');
   const step = g.tower.step;
@@ -92,23 +92,21 @@ test('ルーレット段を抜くとルーレット→タップで止まる→�
   assert.ok(g.lastItem && typeof g.lastItem.item === 'string');
   assert.ok(g.tower.step >= step);
 });
-test('ルーレット中は針が進まず、段も抜けない', () => {
+test('ルーレット中は段が抜けない(リズムは止めない)', () => {
   const g = createGame(createStorage(mem()), () => 0);
   g.finishOpening();
   g.tower = { ...g.tower, step: 30, rouletteAt: 30 };
-  g.phase = 0.25;
+  g.beats = 1;
   g.tap(1000);
   const { step } = g.tower;
-  const ph = g.phase;
   g.update(0.05);
   g.tap(1500); g.tap(1700);
   assert.equal(g.tower.step, step);
-  assert.equal(g.phase, ph);
 });
 test('砂時計中は針がゆっくり', () => {
   const g = createGame(createStorage(mem()));
   g.finishOpening();
-  const normal = g.speed();
+  const normal = g.targetBpm();
   g.tower = { ...g.tower, slowTaps: 5 };
-  assert.ok(g.speed() < normal);
+  assert.ok(g.targetBpm() < normal);
 });

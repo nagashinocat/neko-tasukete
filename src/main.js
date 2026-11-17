@@ -65,6 +65,8 @@ function afterInput() {
 
 const inside = (b, x, y) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
 let sharing = false;
+// BGMが読む拍の時計:最後のフレームからの経過ぶんも足して、いまの拍を出す
+const beatClock = () => ({ beat: game.beats + (Math.max(0, performance.now() - last) / 60000) * game.bpm, bpm: game.bpm });
 let shareImage = null;
 
 canvas.addEventListener('pointerdown', (e) => {
@@ -104,8 +106,7 @@ function frame(now) {
   game.update(dt);
   afterInput();
   if (game.state === 'playing' || game.state === 'roulette') {
-    bgm.setSpeed(game.speed());
-    if (!bgm.playing) bgm.start();
+    if (!bgm.playing) bgm.start(beatClock);
   } else if (bgm.playing) bgm.stop();
   ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
   if (game.state === 'opening') opening.draw(ctx, view);

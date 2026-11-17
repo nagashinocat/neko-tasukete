@@ -1,13 +1,15 @@
 // 調整用の数値。試遊で調整する前提の初期値。
 export const TOTAL_STEPS = 10000;
-export const PERFECT_HALF_WIDTH = 0.10; // 針位置 -1..1 のうち中心±この幅が「ぴったり」
-export const BAND_HALF_WIDTH = 0.25;    // 見た目の帯の半幅
+export const PERFECT_MS = 50;           // 拍から±この時間なら「ぴったり」
+export const GOOD_MS = 110;             // 黄色い帯(見た目の目安)
+export const PERFECT_FRAC = 0.08;       // 速いテンポでは「ぴったり」は1拍のこの割合まで狭くなる
 export const TILT_PER_OFFSET = 0.35;    // ずれ1あたりに増える傾き
 export const TILT_RECOVER = 0.12;       // ぴったりで戻る傾き
 export const TILT_LIMIT = 1.0;          // これ以上で崩れる
-export const SPEED_BASE = 0.6;          // 往復/秒
-export const SPEED_MAX = 5.0;
-export const SPEED_RAMP_STEPS = 4000;
+export const BPM_MIN = 80;              // テンポ(1拍ごとに針が端に着く)
+export const BPM_MAX = 240;
+export const BPM_RAMP_STEPS = 2500;     // テンポの上がり方
+export const BPM_RATE = 4;              // テンポが変わる速さ(BPM/秒)
 export const SCENES = [
   { from: 0, id: 'ground', label: '地上' },
   { from: 100, id: 'sky', label: '空' },
@@ -26,4 +28,4 @@ export const BOMB_BLOCKS = 10;
 export const MISSILE_BLOCKS = 30;
 export const ITEM_TAPS = 10;         // 砂時計・ペンキが続く回数
 export const GLUE_BLOCKS = 10;
-export const SLOW_FACTOR = 0.55;     // 砂時計中の針の速さ
+export const SLOW_FACTOR = 0.7;      // 砂時計中のテンポ

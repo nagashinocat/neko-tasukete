@@ -1,6 +1,5 @@
-import { TOTAL_STEPS, BAND_HALF_WIDTH, PERFECT_HALF_WIDTH, SCENES, TILT_LIMIT, COLLAPSE_SEC } from './config.js';
-import { needlePosition } from './gauge.js';
-import { speedForStep } from './tempo.js';
+import { TOTAL_STEPS, SCENES, TILT_LIMIT, COLLAPSE_SEC } from './config.js';
+import { needlePosition, zoneWidths } from './gauge.js';
 import { sceneForStep, stepsToSpace } from './scenery.js';
 import {
   FONT, blockColor, drawBlock, drawDarumaHead, roundRect, SKY_COLORS, mixColor,
@@ -127,8 +126,7 @@ export function createRenderer() {
       if (game.tower.combo >= 2) fx.comboAt = now;
       if (game.lastJudge?.perfect) fx.perfectAt = now;
       else {
-        const pos = needlePosition(game.phase);
-        fx.leanDir = pos >= 0 ? 1 : -1;
+        fx.leanDir = game.beats - Math.round(game.beats) >= 0 ? 1 : -1; // 遅れたら右、早かったら左
         if (game.lastJudge && game.lastJudge.offset > 0.55) fx.wobbleAt = now;
       }
       const scene = sceneForStep(game.tower.step);
@@ -240,7 +238,7 @@ export function createRenderer() {
   function drawTower(ctx, L, game, now) {
     const { tower } = game;
     const t = now / 1000;
-    const speed = speedForStep(tower.step);
+    const speed = (game.bpm || 80) / 100;
     const rows = Math.ceil(L.groundY / L.bh) + 2;
     // まとめて飛ぶときは、まだ弾かれていない段を下に残し、1段ずつ落とす
     let pending = 0;
@@ -337,14 +335,33 @@ export function createRenderer() {
     ctx.fillStyle = '#f4ead7';
     roundRect(ctx, G.x, G.y, G.w, G.h, 9);
     ctx.fill();
-    const band = (G.w / 2) * BAND_HALF_WIDTH;
+    // 両端が的:黄色の内側に赤い「ぴったり」
+    const z = zoneWidths(game.bpm || 80);
+    const goodPx = G.w * z.good;
+    const perfPx = G.w * z.perfect;
+    ctx.save();
+    roundRect(ctx, G.x, G.y, G.w, G.h, 9);
+    ctx.clip();
     ctx.fillStyle = '#ffd166';
-    ctx.fillRect(mid - band, G.y, band * 2, G.h);
-    const perfect = (G.w / 2) * PERFECT_HALF_WIDTH;
+    ctx.fillRect(G.x, G.y, goodPx, G.h);
+    ctx.fillRect(G.x + G.w - goodPx, G.y, goodPx, G.h);
     ctx.fillStyle = '#ef476f';
-    ctx.fillRect(mid - perfect, G.y, perfect * 2, G.h);
+    ctx.fillRect(G.x, G.y, perfPx, G.h);
+    ctx.fillRect(G.x + G.w - perfPx, G.y, perfPx, G.h);
+    // 拍の瞬間に端が光る
+    const live = game.state === 'playing' || game.state === 'roulette';
+    if (live) {
+      const nearest = Math.round(game.beats);
+      const glow = Math.max(0, 1 - Math.abs(game.beats - nearest) * 5);
+      if (glow > 0) {
+        const right = ((nearest % 2) + 2) % 2 === 1;
+        ctx.fillStyle = `rgba(255,255,255,${0.7 * glow})`;
+        ctx.fillRect(right ? G.x + G.w - perfPx : G.x, G.y, perfPx, G.h);
+      }
+    }
+    ctx.restore();
     // 針
-    const pos = game.state === 'playing' || game.state === 'roulette' ? needlePosition(game.phase) : 0;
+    const pos = live ? needlePosition(game.beats) : 0;
     const nx = mid + pos * (G.w / 2);
     ctx.fillStyle = '#1a1a2e';
     ctx.fillRect(nx - 3, G.y - 8, 6, G.h + 16);
@@ -421,7 +438,7 @@ export function createRenderer() {
       const a = 0.6 + 0.4 * Math.sin(now / 250);
       ctx.save();
       ctx.globalAlpha = a;
-      text(ctx, '赤い帯で タップ!', L.cx, L.gauge.y - 34, 22, '#fff');
+      text(ctx, 'ドンに合わせて 端の赤でタップ!', L.cx, L.gauge.y - 34, 19, '#fff');
       ctx.restore();
     }
     if (fx.toast) {

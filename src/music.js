@@ -1,14 +1,17 @@
-import { SPEED_BASE, SPEED_MAX } from './config.js';
-
 // お囃子風BGMの譜面。1小節16刻み。
 export const BAR_STEPS = 16;
-const TEMPO_MIN = 96;
-const TEMPO_MAX = 176;
-
-// 針の速さ → BGMのテンポ(BPM)
-export function bgmTempo(speed) {
-  const t = Math.max(0, Math.min(1, (speed - SPEED_BASE) / (SPEED_MAX - SPEED_BASE)));
-  return Math.round(TEMPO_MIN + (TEMPO_MAX - TEMPO_MIN) * t);
+// 拍の時計(beatNow)から、lookaheadSec 先までに鳴らす16分音符を時刻つきで返す。
+// 遅れた音符は飛ばす。step は曲の頭からの16分音符の番号
+export function stepsToSchedule(nextStep, beatNow, bpm, lookaheadSec) {
+  const out = [];
+  const secPerBeat = 60 / bpm;
+  const until = beatNow + lookaheadSec / secPerBeat;
+  for (let s = nextStep; s / 4 < until; s++) {
+    const inSec = (s / 4 - beatNow) * secPerBeat;
+    if (inSec < -0.02) continue;
+    out.push({ step: s, inSec });
+  }
+  return out;
 }
 
 // 笛:陽音階(レ ミ ソ ラ シ)の MIDI 番号。null は休み、'~' はのばす

@@ -1,9 +1,9 @@
-import { COLLAPSE_SEC, TAP_GUARD_MS, RESULT_GUARD_SEC, SLOW_FACTOR } from './config.js';
+import { COLLAPSE_SEC, TAP_GUARD_MS, RESULT_GUARD_SEC, SLOW_FACTOR, BPM_MIN } from './config.js';
 import { applyItem, createRoulette, stopRoulette, updateRoulette } from './items.js';
+import { advanceBeats, judge } from './gauge.js';
+import { bpmForStep, easeBpm } from './tempo.js';
 
 const ROULETTE_HOLD_SEC = 1.0; // 止まったアイテムを見せる時間
-import { needlePosition, advancePhase, judge } from './gauge.js';
-import { speedForStep } from './tempo.js';
 import { createTower, hit } from './tower.js';
 
 // 画面状態: 'opening' | 'playing' | 'roulette' | 'collapsing' | 'result'
@@ -22,10 +22,11 @@ export function createGame(storage, rng = Math.random) {
     lastItem: null,   // { item, seq } 最後に効いたアイテム(演出用)
     itemSeq: 0,
 
-    speed() {
-      return speedForStep(this.tower.step) * (this.tower.slowTaps > 0 ? SLOW_FACTOR : 1);
+    beats: 0,         // 拍の時計(BGMと針はこれに合わせる)
+    bpm: BPM_MIN,     // 今のテンポ(目標へなめらかに近づく)
+    targetBpm() {
+      return bpmForStep(this.tower.step) * (this.tower.slowTaps > 0 ? SLOW_FACTOR : 1);
     },
-    phase: 0,
     best: storage.getBest(),
     newBest: false,
     lastJudge: null,
@@ -36,9 +37,13 @@ export function createGame(storage, rng = Math.random) {
     lastTapMs: -Infinity,
 
     update(dtSec) {
-      if (this.state === 'playing') {
-        this.phase = advancePhase(this.phase, this.speed(), dtSec);
-      } else if (this.state === 'roulette') {
+      if (this.state === 'playing' || this.state === 'roulette') {
+        // リズムはルーレット中も止めない
+        const dt = Math.min(Math.max(dtSec, 0), 0.1);
+        this.bpm = easeBpm(this.bpm, this.targetBpm(), dt);
+        this.beats = advanceBeats(this.beats, this.bpm, dt);
+      }
+      if (this.state === 'roulette') {
         const r = this.roulette;
         updateRoulette(r, Math.min(Math.max(dtSec, 0), 0.1));
         if (r.done) {
@@ -71,7 +76,7 @@ export function createGame(storage, rng = Math.random) {
         return;
       }
       if (this.state !== 'playing') return;
-      this.lastJudge = judge(needlePosition(this.phase));
+      this.lastJudge = judge(this.beats, this.bpm);
       this.tower = hit(this.tower, this.lastJudge, rng);
       this.lastHitMs = nowMs;
       if (this.tower.collapsed) {
@@ -96,7 +101,8 @@ export function createGame(storage, rng = Math.random) {
       this.tower = createTower(rng);
       this.roulette = null;
       this.lastItem = null;
-      this.phase = 0;
+      this.beats = 0;
+      this.bpm = BPM_MIN;
       this.newBest = false;
       this.lastJudge = null;
       this.lastHitMs = null;

@@ -1,19 +1,30 @@
-import { PERFECT_HALF_WIDTH } from './config.js';
+import { PERFECT_MS, GOOD_MS, PERFECT_FRAC } from './config.js';
+
+const perfectMs = (beatMs) => Math.min(PERFECT_MS, beatMs * PERFECT_FRAC);
 
 const MAX_DT = 0.1;
 
-// phase 0..1(1で1往復)→ 針の位置 -1..1(三角波)
-export function needlePosition(phase) {
-  const p = ((phase % 1) + 1) % 1;
-  return p < 0.5 ? -1 + 4 * p : 3 - 4 * p;
+// 拍(beats)→ 針の位置 -1..1。偶数拍で左端、奇数拍で右端に着く三角波
+export function needlePosition(beats) {
+  const p = ((beats % 2) + 2) % 2;
+  return p <= 1 ? -1 + 2 * p : 3 - 2 * p;
 }
 
-export function advancePhase(phase, speed, dtSec) {
+export function advanceBeats(beats, bpm, dtSec) {
   const dt = Math.min(Math.max(dtSec, 0), MAX_DT);
-  return (phase + speed * dt) % 1;
+  return beats + (bpm / 60) * dt;
 }
 
-export function judge(position) {
-  const offset = Math.abs(position);
-  return { offset, perfect: offset <= PERFECT_HALF_WIDTH };
+// 一番近い拍からのずれで判定。offset は半拍に対する割合(0..1)
+export function judge(beats, bpm) {
+  const d = Math.abs(beats - Math.round(beats));
+  const beatMs = 60000 / bpm;
+  const ms = d * beatMs;
+  return { ms, offset: Math.min(1, d * 2), perfect: ms <= perfectMs(beatMs) };
+}
+
+// ゲージ全幅に対する、端の赤(perfect)と黄色(good)の幅の割合
+export function zoneWidths(bpm) {
+  const beatMs = 60000 / bpm;
+  return { perfect: Math.min(0.45, perfectMs(beatMs) / beatMs), good: Math.min(0.5, GOOD_MS / beatMs) };
 }
