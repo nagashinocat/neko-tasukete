@@ -3,7 +3,6 @@ import { createGame } from './game.js';
 import { createRenderer, resultButtons, muteButton, drawMuteButton, POP_GAP_MS } from './render.js';
 import { createOpening } from './opening.js';
 import { unlockAudio, sfx, bgm, setMuted } from './sound.js';
-import { speedForStep } from './tempo.js';
 import { prepareShareImage } from './shareCard.js';
 import { shareBlob } from './share.js';
 import { tapTime } from './input.js';
@@ -32,13 +31,30 @@ resize();
 let last = performance.now();
 let prevHit = null;
 let prevState = game.state;
+let prevSeg = 0;
+let prevItemSeq = 0;
 
 function afterInput() {
   if (game.lastHitMs !== prevHit && game.lastHitMs != null) {
     prevHit = game.lastHitMs;
-    if (game.lastJudge?.perfect) sfx.perfect(game.tower.popped || 1, POP_GAP_MS / 1000); else sfx.pon();
+    if (game.tower.popped === 0) sfx.peel();
+    else if (game.lastJudge?.perfect) sfx.perfect(game.tower.popped, POP_GAP_MS / 1000);
+    else sfx.pon();
   }
   if (game.state === 'collapsing' && prevState !== 'collapsing') sfx.crash();
+  if (game.roulette) {
+    const seg = Math.floor(game.roulette.pos + 0.5);
+    if (seg !== prevSeg) { prevSeg = seg; sfx.tick(); }
+  }
+  if (game.lastItem && game.lastItem.seq !== prevItemSeq) {
+    prevItemSeq = game.lastItem.seq;
+    const it = game.lastItem.item;
+    if (it === 'bomb') sfx.boom();
+    else if (it === 'missile') sfx.missile();
+    else if (it === 'paint') sfx.splat();
+    else sfx.item(it !== 'glue');
+  }
+  if (game.state === 'roulette' && prevState !== 'roulette') prevSeg = 0;
   if (game.state === 'result' && prevState !== 'result') {
     shareImage = null;
     const step = game.tower.step;
@@ -87,8 +103,8 @@ function frame(now) {
   if (game.state === 'opening') opening.update(dt);
   game.update(dt);
   afterInput();
-  if (game.state === 'playing') {
-    bgm.setSpeed(speedForStep(game.tower.step));
+  if (game.state === 'playing' || game.state === 'roulette') {
+    bgm.setSpeed(game.speed());
     if (!bgm.playing) bgm.start();
   } else if (bgm.playing) bgm.stop();
   ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);

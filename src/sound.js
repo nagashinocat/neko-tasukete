@@ -92,6 +92,41 @@ export const sfx = {
     osc(sfxBus, end, 'sine', 1568, 1568, 0.18, 0.003, 0.45); // チーン
     osc(sfxBus, end, 'sine', 2349, 2349, 0.09, 0.003, 0.3);
   },
+  peel() {
+    if (!ac) return;
+    const t = ac.currentTime;
+    burst(sfxBus, t, 'highpass', 2500, 0.8, 0.35, 0.09); // ペリッ
+    osc(sfxBus, t, 'sawtooth', 300, 900, 0.06, 0.005, 0.07);
+  },
+  tick() {
+    if (!ac) return;
+    osc(sfxBus, ac.currentTime, 'square', 1800, 1800, 0.06, 0.001, 0.025);
+  },
+  item(good) {
+    if (!ac) return;
+    const t = ac.currentTime;
+    const notes = good ? [784, 988, 1175, 1568] : [523, 494, 466, 415];
+    notes.forEach((f, i) => osc(sfxBus, t + i * 0.08, 'triangle', f, f, 0.16, 0.005, 0.18));
+  },
+  boom() {
+    if (!ac) return;
+    const t = ac.currentTime;
+    burst(sfxBus, t, 'lowpass', 900, 0.6, 1.0, 0.7);
+    osc(sfxBus, t, 'sine', 110, 35, 0.8, 0.005, 0.6);
+    for (let i = 0; i < 6; i++) knock(t + 0.05 + i * 0.03, 0.7 + Math.random() * 0.6);
+  },
+  missile() {
+    if (!ac) return;
+    const t = ac.currentTime;
+    burst(sfxBus, t, 'bandpass', 1200, 0.6, 0.5, 0.6);
+    osc(sfxBus, t, 'sawtooth', 220, 880, 0.08, 0.02, 0.5);
+    for (let i = 0; i < 10; i++) knock(t + 0.05 + i * 0.04, 0.8 + Math.random() * 0.6);
+  },
+  splat() {
+    if (!ac) return;
+    const t = ac.currentTime;
+    for (let i = 0; i < 4; i++) burst(sfxBus, t + i * 0.07, 'lowpass', 700, 1.2, 0.6, 0.12);
+  },
   crash() {
     if (!ac) return;
     const t = ac.currentTime;

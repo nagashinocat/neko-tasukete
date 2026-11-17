@@ -157,3 +157,104 @@ export function drawCloud(ctx, x, y, s, alpha = 1) {
   ctx.fill();
   ctx.restore();
 }
+
+// ルーレット段:金色に光る段に「?」
+export function drawRouletteBlock(ctx, cx, cy, w, h, now) {
+  const x = cx - w / 2;
+  const y = cy - h / 2;
+  const r = Math.min(10, h * 0.25);
+  const g = ctx.createLinearGradient(x, 0, x + w, 0);
+  g.addColorStop(0, '#a8740c');
+  g.addColorStop(0.35, '#ffe48a');
+  g.addColorStop(0.55, '#f5c02a');
+  g.addColorStop(1, '#9a6a08');
+  ctx.fillStyle = g;
+  roundRect(ctx, x, y, w, h, r);
+  ctx.fill();
+  // 光の帯が流れる
+  const sx = x + ((now / 900) % 1) * (w + 60) - 30;
+  ctx.save();
+  roundRect(ctx, x, y, w, h, r);
+  ctx.clip();
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.beginPath();
+  ctx.moveTo(sx, y); ctx.lineTo(sx + 16, y); ctx.lineTo(sx - 4, y + h); ctx.lineTo(sx - 20, y + h);
+  ctx.fill();
+  ctx.restore();
+  ctx.font = `900 ${h * 0.62}px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#7a4a00';
+  ctx.fillText('?', cx, cy + 1);
+  // きらきら
+  ctx.fillStyle = '#fff';
+  for (let i = 0; i < 3; i++) {
+    const p = (now / 700 + i / 3) % 1;
+    const a = Math.sin(p * Math.PI);
+    const px = x + w * (0.15 + 0.35 * i);
+    const py = y + h * (i % 2 ? 0.25 : 0.7);
+    const s = 5 * a;
+    ctx.globalAlpha = a;
+    ctx.beginPath();
+    ctx.moveTo(px, py - s); ctx.lineTo(px + s * 0.3, py); ctx.lineTo(px, py + s); ctx.lineTo(px - s * 0.3, py);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(px - s, py); ctx.lineTo(px, py + s * 0.3); ctx.lineTo(px + s, py); ctx.lineTo(px, py - s * 0.3);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+// のりでくっついた段(peeled=1回目ではがれかけ)
+export function drawGlue(ctx, cx, cy, w, h, peeled) {
+  const x = cx - w / 2;
+  const y = cy - h / 2;
+  ctx.save();
+  ctx.fillStyle = peeled ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.55)';
+  roundRect(ctx, x - 2, y - 2, w + 4, h + 4, 10);
+  ctx.fill();
+  // たれ
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  const drips = peeled ? 1 : 3;
+  for (let i = 0; i < drips; i++) {
+    const dx = x + w * (0.2 + 0.3 * i);
+    ctx.beginPath();
+    ctx.moveTo(dx - 5, y + h - 2);
+    ctx.quadraticCurveTo(dx, y + h + 12, dx + 5, y + h - 2);
+    ctx.fill();
+  }
+  if (peeled) {
+    ctx.strokeStyle = 'rgba(80,80,90,0.6)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 4]);
+    ctx.strokeRect(x + 3, y + 3, w - 6, h - 6);
+  }
+  ctx.restore();
+}
+
+// インクのしみ
+export function drawSplat(ctx, sp, alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = sp.color;
+  ctx.beginPath();
+  ctx.arc(sp.x, sp.y, sp.r, 0, Math.PI * 2);
+  ctx.fill();
+  for (let i = 0; i < 9; i++) {
+    const a = seeded(sp.seed + i) * Math.PI * 2;
+    const d = sp.r * (0.8 + seeded(sp.seed + i + 20) * 0.9);
+    const rr = sp.r * (0.12 + seeded(sp.seed + i + 40) * 0.3);
+    ctx.beginPath();
+    ctx.arc(sp.x + Math.cos(a) * d, sp.y + Math.sin(a) * d, rr, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  for (let i = 0; i < 3; i++) {
+    const dx = sp.x + (seeded(sp.seed + i + 60) - 0.5) * sp.r * 1.2;
+    const len = sp.r * (0.6 + seeded(sp.seed + i + 70));
+    ctx.fillRect(dx - 4, sp.y, 8, len);
+    ctx.beginPath();
+    ctx.arc(dx, sp.y + len, 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}

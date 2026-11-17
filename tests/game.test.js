@@ -76,3 +76,39 @@ test('結果画面に入った直後はボタンが効かない', () => {
   g.update(0.6);
   assert.equal(g.resultReady, true);
 });
+
+test('ルーレット段を抜くとルーレット→タップで止まる→アイテムが効いて再開', () => {
+  const g = createGame(createStorage(mem()), () => 0);
+  g.finishOpening();
+  g.tower = { ...g.tower, step: 30, rouletteAt: 30 };
+  g.phase = 0.25; // ぴったり
+  g.tap(1000);
+  assert.equal(g.state, 'roulette');
+  const step = g.tower.step;
+  g.update(0.5);
+  g.tap(2000); // 止める
+  for (let i = 0; i < 600 && g.state === 'roulette'; i++) g.update(1 / 60);
+  assert.equal(g.state, 'playing');
+  assert.ok(g.lastItem && typeof g.lastItem.item === 'string');
+  assert.ok(g.tower.step >= step);
+});
+test('ルーレット中は針が進まず、段も抜けない', () => {
+  const g = createGame(createStorage(mem()), () => 0);
+  g.finishOpening();
+  g.tower = { ...g.tower, step: 30, rouletteAt: 30 };
+  g.phase = 0.25;
+  g.tap(1000);
+  const { step } = g.tower;
+  const ph = g.phase;
+  g.update(0.05);
+  g.tap(1500); g.tap(1700);
+  assert.equal(g.tower.step, step);
+  assert.equal(g.phase, ph);
+});
+test('砂時計中は針がゆっくり', () => {
+  const g = createGame(createStorage(mem()));
+  g.finishOpening();
+  const normal = g.speed();
+  g.tower = { ...g.tower, slowTaps: 5 };
+  assert.ok(g.speed() < normal);
+});

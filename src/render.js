@@ -4,8 +4,9 @@ import { speedForStep } from './tempo.js';
 import { sceneForStep, stepsToSpace } from './scenery.js';
 import {
   FONT, blockColor, drawBlock, drawDarumaHead, roundRect, SKY_COLORS, mixColor,
-  drawStars, drawCloud, seeded,
+  drawStars, drawCloud, seeded, drawRouletteBlock, drawGlue, drawSplat,
 } from './art.js';
+import { ITEMS, ITEM_INFO } from './items.js';
 
 const fmt = (n) => n.toLocaleString('ja-JP');
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -114,11 +115,15 @@ export function createRenderer() {
     if (game.lastHitMs !== fx.prevHitMs && game.lastHitMs != null) {
       fx.prevHitMs = game.lastHitMs;
       fx.hammerAt = now;
-      const n = Math.max(1, game.tower.popped || 1);
-      const first = game.tower.step - n;
-      fx.group = { at: now, n };
-      for (let i = 0; i < n; i++) fx.popped.push({ at: now + i * POP_GAP_MS, color: blockColor(first + i), lane: i });
-      if (fx.popped.length > 24) fx.popped.splice(0, fx.popped.length - 24);
+      const n = game.tower.popped || 0;
+      if (n === 0) {
+        fx.peelAt = now; // のり:ペリッ
+      } else {
+        const first = game.tower.step - n;
+        fx.group = { at: now, n, gap: POP_GAP_MS };
+        for (let i = 0; i < n; i++) fx.popped.push({ at: now + i * POP_GAP_MS, color: blockColor(first + i), lane: i });
+        if (fx.popped.length > 40) fx.popped.splice(0, fx.popped.length - 40);
+      }
       if (game.tower.combo >= 2) fx.comboAt = now;
       if (game.lastJudge?.perfect) fx.perfectAt = now;
       else {
@@ -132,8 +137,31 @@ export function createRenderer() {
         if (game.tower.step > 0) fx.toast = { text: `${scene.label}に到達!`, at: now };
       }
     }
-    if (game.lastHitMs == null) {
+    // アイテムが効いたとき
+    if (game.lastItem && game.lastItem.seq !== fx.itemSeq) {
+      fx.itemSeq = game.lastItem.seq;
+      const item = game.lastItem.item;
+      fx.itemToast = { item, at: now };
+      if (item === 'bomb' || item === 'missile') {
+        const n = game.tower.blasted || 0;
+        const gap = item === 'bomb' ? 22 : 12;
+        const first = game.tower.step - n;
+        fx.group = { at: now, n, gap };
+        for (let i = 0; i < n; i++) fx.popped.push({ at: now + i * gap, color: blockColor(first + i), lane: i * 7 + (item === 'bomb' ? 1 : 0), side: item === 'missile' && i % 2 ? -1 : 1, boom: item === 'bomb' });
+        if (fx.popped.length > 40) fx.popped.splice(0, fx.popped.length - 40);
+        if (item === 'bomb') fx.boomAt = now; else fx.missileAt = now;
+      }
+      if (item === 'paint') {
+        const r = () => Math.random();
+        fx.splats = Array.from({ length: 4 }, (_, i) => ({
+          x: 0.15 + r() * 0.7, y: i === 3 ? 0.9 : 0.15 + r() * 0.6, r: 38 + r() * 34,
+          color: ['#e8368f', '#2d7dd2', '#1b998b', '#3d2c8d', '#f46036'][Math.floor(r() * 5)], seed: Math.floor(r() * 1000),
+        }));
+      }
+    }
+    if (game.lastHitMs == null && !game.lastItem) {
       // もう一回のとき
+      fx.splats = null;
       fx.prevHitMs = null;
       fx.sceneId = 'ground';
       fx.popped = [];
@@ -219,9 +247,10 @@ export function createRenderer() {
     let drop = 0;
     if (fx.group) {
       const el = now - fx.group.at;
-      const launched = Math.min(fx.group.n, Math.floor(el / POP_GAP_MS) + 1);
+      const gap = fx.group.gap;
+      const launched = Math.min(fx.group.n, Math.floor(el / gap) + 1);
       pending = fx.group.n - launched;
-      const sinceLast = (el - (launched - 1) * POP_GAP_MS) / 90;
+      const sinceLast = (el - (launched - 1) * gap) / Math.min(90, gap * 1.6);
       drop = L.bh * (1 - easeOut(clamp01(sinceLast)));
     }
     const wobble = Math.exp(-(now - fx.wobbleAt) / 400) * 10 * Math.sin((now - fx.wobbleAt) / 40);
@@ -253,7 +282,9 @@ export function createRenderer() {
         drawDarumaHead(ctx, x, y + L.bh / 2, L.bw * 0.95);
         break;
       }
-      drawBlock(ctx, x, y, L.bw, L.bh, blockColor(idx));
+      if (idx === tower.rouletteAt && pending === 0) drawRouletteBlock(ctx, x, y, L.bw, L.bh, now);
+      else drawBlock(ctx, x, y, L.bw, L.bh, blockColor(idx));
+      if (idx < (tower.gluedUntil || 0) && pending === 0) drawGlue(ctx, x, y, L.bw, L.bh, r === 0 && tower.glueHits === 1);
     }
     ctx.restore();
 
@@ -261,8 +292,8 @@ export function createRenderer() {
     for (const p of fx.popped) {
       const s = (now - p.at) / 1000;
       if (s < 0 || s > 0.8) continue;
-      const up = 60 + (p.lane % 4) * 70; // まとめて飛ぶときは少しずつ違う高さへ
-      const x = L.cx + s * (900 - (p.lane % 3) * 120);
+      const up = (p.boom ? 400 : 60) + (p.lane % 4) * 70; // まとめて飛ぶときは少しずつ違う高さへ
+      const x = L.cx + (p.side || 1) * s * (900 - (p.lane % 3) * 120);
       const y = L.groundY - L.bh / 2 - up * s + 900 * s * s;
       ctx.save();
       ctx.globalAlpha = 1 - s / 0.8;
@@ -277,10 +308,10 @@ export function createRenderer() {
     // 横から一番下の段を打つ槌
     let hitAt = fx.hammerAt;
     if (fx.group) {
-      const launched = Math.min(fx.group.n, Math.floor((now - fx.group.at) / POP_GAP_MS) + 1);
-      hitAt = fx.group.at + (launched - 1) * POP_GAP_MS;
+      const launched = Math.min(fx.group.n, Math.floor((now - fx.group.at) / fx.group.gap) + 1);
+      hitAt = fx.group.at + (launched - 1) * fx.group.gap;
     }
-    const s = clamp01((now - hitAt) / (fx.group && fx.group.n > 1 ? POP_GAP_MS : 160));
+    const s = clamp01((now - hitAt) / (fx.group && fx.group.n > 1 ? Math.max(fx.group.gap, 40) : 160));
     const swing = s < 0.35 ? s / 0.35 : 1 - (s - 0.35) / 0.65; // 0=構え 1=打った瞬間
     const headW = L.bh * 0.9;
     const headH = L.bh * 1.15;
@@ -313,7 +344,7 @@ export function createRenderer() {
     ctx.fillStyle = '#ef476f';
     ctx.fillRect(mid - perfect, G.y, perfect * 2, G.h);
     // 針
-    const pos = game.state === 'playing' ? needlePosition(game.phase) : 0;
+    const pos = game.state === 'playing' || game.state === 'roulette' ? needlePosition(game.phase) : 0;
     const nx = mid + pos * (G.w / 2);
     ctx.fillStyle = '#1a1a2e';
     ctx.fillRect(nx - 3, G.y - 8, 6, G.h + 16);
@@ -354,6 +385,21 @@ export function createRenderer() {
     text(ctx, `${fmt(step)}段`, L.cx, 58, 44);
     text(ctx, `宇宙まであと ${fmt(stepsToSpace(step))}段`, L.cx, 98, 16, '#e6f0ff', 'center', 700);
     text(ctx, `自己ベスト ${fmt(game.best)}`, L.w - 14, 22, 13, '#ffe9a8', 'right', 700);
+    // アイテムの残り(左側)
+    const st = [];
+    const t = game.tower;
+    if (t.charms > 0) st.push(['お守り', '#ffc2dc']);
+    if (t.slowTaps > 0) st.push([`砂時計 あと${t.slowTaps}回`, '#ffe6a6']);
+    if (t.gluedUntil > t.step) st.push([`のり あと${t.gluedUntil - t.step}段`, '#e6e6f0']);
+    st.forEach(([label, color], i) => text(ctx, label, 10, L.h * 0.36 + i * 26, 15, color, 'left', 800));
+    // ペリッ
+    const pk = (now - (fx.peelAt ?? -1e9)) / 500;
+    if (pk < 1) {
+      ctx.save();
+      ctx.globalAlpha = 1 - pk;
+      text(ctx, 'ペリッ', L.cx + L.bw * 0.2, L.groundY - L.bh * 1.4 - pk * 20, 22, '#fff', 'center', 900);
+      ctx.restore();
+    }
     // コンボ(右側)
     const combo = game.tower.combo || 0;
     if (combo >= 2 && game.state === 'playing') {
@@ -430,6 +476,131 @@ export function createRenderer() {
     button(ctx, B.share, '結果を共有', '#f4ead7', '#1a1a2e');
   }
 
+  function drawEffects(ctx, L, now) {
+    // 爆発
+    const b = (now - (fx.boomAt ?? -1e9)) / 500;
+    if (b < 1) {
+      const R = 40 + b * Math.max(L.w, 300) * 0.6;
+      const g = ctx.createRadialGradient(L.cx, L.groundY - L.bh, 0, L.cx, L.groundY - L.bh, R);
+      g.addColorStop(0, `rgba(255,250,200,${1 - b})`);
+      g.addColorStop(0.4, `rgba(255,160,40,${0.8 * (1 - b)})`);
+      g.addColorStop(1, 'rgba(255,60,0,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(L.cx, L.groundY - L.bh, R, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // ミサイル
+    const m = (now - (fx.missileAt ?? -1e9)) / 650;
+    if (m < 1) {
+      const y = L.groundY - m * (L.groundY + 120);
+      ctx.save();
+      ctx.translate(L.cx, y);
+      const fl = ctx.createLinearGradient(0, 20, 0, 120);
+      fl.addColorStop(0, 'rgba(255,230,120,0.95)');
+      fl.addColorStop(1, 'rgba(255,90,20,0)');
+      ctx.fillStyle = fl;
+      ctx.beginPath();
+      ctx.moveTo(-14, 30); ctx.lineTo(14, 30); ctx.lineTo(0, 130 + Math.sin(now / 20) * 10);
+      ctx.fill();
+      ctx.fillStyle = '#e9edf2';
+      roundRect(ctx, -14, -40, 28, 72, 10);
+      ctx.fill();
+      ctx.fillStyle = '#d64545';
+      ctx.beginPath();
+      ctx.moveTo(-14, -30); ctx.quadraticCurveTo(0, -75, 14, -30);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-14, 18); ctx.lineTo(-28, 36); ctx.lineTo(-14, 32);
+      ctx.moveTo(14, 18); ctx.lineTo(28, 36); ctx.lineTo(14, 32);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function drawSplats(ctx, L, game) {
+    if (!fx.splats || !(game.tower.paintTaps > 0)) return;
+    const a = Math.min(1, 0.15 + game.tower.paintTaps / 10);
+    for (const sp of fx.splats) drawSplat(ctx, { ...sp, x: sp.x * L.w, y: sp.y * L.h }, a);
+  }
+
+  const ITEM_SHOUT = { bomb: 'ドカーン!', missile: 'ズドーン!', charm: 'お守りゲット!', hourglass: '砂時計!', paint: 'ベチャッ!', glue: 'ベタッ…' };
+
+  function drawItemToast(ctx, L, now) {
+    if (!fx.itemToast) return;
+    const s = (now - fx.itemToast.at) / 1300;
+    if (s >= 1) { fx.itemToast = null; return; }
+    const info = ITEM_INFO[fx.itemToast.item];
+    ctx.save();
+    ctx.globalAlpha = s < 0.75 ? 1 : (1 - s) / 0.25;
+    const sc = 1 + Math.max(0, 0.25 - s) * 1.6;
+    ctx.translate(L.cx, L.h * 0.3);
+    ctx.scale(sc, sc);
+    text(ctx, ITEM_SHOUT[fx.itemToast.item], 0, 0, 40, info.good ? '#ffe066' : '#c8f1ff', 'center', 900);
+    ctx.restore();
+  }
+
+  function drawRoulette(ctx, L, game, now) {
+    const r = game.roulette;
+    if (!r) return;
+    ctx.fillStyle = 'rgba(5,6,20,0.55)';
+    ctx.fillRect(0, 0, L.w, L.h);
+    const R = Math.min(L.w * 0.38, 170);
+    const cx = L.cx;
+    const cy = L.h * 0.44;
+    const n = ITEMS.length;
+    const seg = (Math.PI * 2) / n;
+    text(ctx, 'アイテムルーレット', cx, cy - R - 46, 24, '#ffe066', 'center', 900);
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI / 2 + (i - r.pos) * seg;
+      const info = ITEM_INFO[ITEMS[i]];
+      ctx.fillStyle = info.color;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, R, a - seg / 2, a + seg / 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#fff6dc';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.save();
+      ctx.translate(cx + Math.cos(a) * R * 0.64, cy + Math.sin(a) * R * 0.64);
+      ctx.rotate(a + Math.PI / 2);
+      ctx.font = `900 ${Math.min(18, R * 0.12)}px ${FONT}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(info.label, 0, 0);
+      ctx.restore();
+    }
+    ctx.fillStyle = '#fff6dc';
+    ctx.beginPath();
+    ctx.arc(cx, cy, R * 0.16, 0, Math.PI * 2);
+    ctx.fill();
+    // 針(上)
+    ctx.fillStyle = '#ffdf5e';
+    ctx.strokeStyle = '#7a1f00';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx - 16, cy - R - 18);
+    ctx.lineTo(cx + 16, cy - R - 18);
+    ctx.lineTo(cx, cy - R + 14);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    if (r.done) {
+      const info = ITEM_INFO[r.item];
+      text(ctx, `${info.label}!`, cx, cy + R + 46, 38, info.good ? '#ffe066' : '#c8f1ff', 'center', 900);
+      text(ctx, info.desc, cx, cy + R + 86, 17, '#fff', 'center', 800);
+    } else if (!r.stopping) {
+      const a = 0.6 + 0.4 * Math.sin(now / 200);
+      ctx.save();
+      ctx.globalAlpha = a;
+      text(ctx, 'タップでストップ!', cx, cy + R + 50, 24, '#fff', 'center', 900);
+      ctx.restore();
+    }
+  }
+
   return {
     render(ctx, game, view, now) {
       const L = layout(view);
@@ -440,6 +611,10 @@ export function createRenderer() {
       drawHammer(ctx, L, now);
       drawGauge(ctx, L, game, now);
       drawHud(ctx, L, game, now);
+      drawEffects(ctx, L, now);
+      drawSplats(ctx, L, game);
+      drawItemToast(ctx, L, now);
+      if (game.state === 'roulette') drawRoulette(ctx, L, game, now);
       if (game.state === 'result') drawResult(ctx, L, game, view);
     },
   };
