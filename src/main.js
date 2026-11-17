@@ -49,7 +49,7 @@ canvas.addEventListener('pointerdown', (e) => {
     if (inside(B.retry, e.clientX, e.clientY)) { game.retry(); prevHit = null; prevState = game.state; }
     else if (inside(B.share, e.clientX, e.clientY) && !sharing) {
       sharing = true;
-      shareResult(game.tower.step, game.newBest, game.tower.reachedTop).finally(() => { sharing = false; });
+      shareResult(game.tower.step, game.newBest).finally(() => { sharing = false; });
     }
     return;
   }
