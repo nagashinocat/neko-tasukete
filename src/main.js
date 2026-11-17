@@ -1,8 +1,9 @@
 import { createStorage } from './storage.js';
 import { createGame } from './game.js';
-import { createRenderer, resultButtons } from './render.js';
+import { createRenderer, resultButtons, muteButton, drawMuteButton } from './render.js';
 import { createOpening } from './opening.js';
-import { unlockAudio, sfx } from './sound.js';
+import { unlockAudio, sfx, bgm, setMuted } from './sound.js';
+import { speedForStep } from './tempo.js';
 import { prepareShareImage } from './shareCard.js';
 import { shareBlob } from './share.js';
 import { tapTime } from './input.js';
@@ -14,6 +15,8 @@ const game = createGame(storage);
 const renderer = createRenderer();
 const opening = createOpening({ canSkip: storage.hasSeenOpening(), onDone: () => game.finishOpening() });
 window.__game = game; // 動作確認用
+let muted = storage.isMuted();
+setMuted(muted);
 
 const view = { width: 0, height: 0, dpr: 1 };
 function resize() {
@@ -51,6 +54,12 @@ let shareImage = null;
 canvas.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   unlockAudio();
+  if (inside(muteButton(), e.clientX, e.clientY)) {
+    muted = !muted;
+    setMuted(muted);
+    storage.setMuted(muted);
+    return;
+  }
   const now = tapTime(e, performance.now());
   if (game.state === 'result') {
     if (!game.resultReady) return; // 連打のまま「もう一回」を押してしまわないように
@@ -78,9 +87,14 @@ function frame(now) {
   if (game.state === 'opening') opening.update(dt);
   game.update(dt);
   afterInput();
+  if (game.state === 'playing') {
+    bgm.setSpeed(speedForStep(game.tower.step));
+    if (!bgm.playing) bgm.start();
+  } else if (bgm.playing) bgm.stop();
   ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
   if (game.state === 'opening') opening.draw(ctx, view);
   else renderer.render(ctx, game, view, now);
+  drawMuteButton(ctx, muted);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

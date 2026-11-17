@@ -22,3 +22,9 @@ test('localStorage が無くても動く', () => {
   s.markOpeningSeen();
   assert.equal(s.hasSeenOpening(), true);
 });
+test('音のオン・オフを覚える', () => {
+  const s = createStorage(mem());
+  assert.equal(s.isMuted(), false);
+  s.setMuted(true);
+  assert.equal(s.isMuted(), true);
+});

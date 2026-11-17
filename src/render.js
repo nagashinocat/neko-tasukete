@@ -20,6 +20,50 @@ export function layout(view) {
   return { w, h, bw, bh, groundY, cx: w / 2, gauge };
 }
 
+// 音のオン・オフボタン(左上)
+export function muteButton() {
+  return { x: 6, y: 6, w: 46, h: 46 };
+}
+
+export function drawMuteButton(ctx, muted) {
+  const b = muteButton();
+  const cx = b.x + b.w / 2;
+  const cy = b.y + b.h / 2;
+  ctx.save();
+  ctx.fillStyle = 'rgba(10,12,30,0.45)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, 17, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  // スピーカー
+  ctx.beginPath();
+  ctx.moveTo(cx - 9, cy - 4);
+  ctx.lineTo(cx - 5, cy - 4);
+  ctx.lineTo(cx + 1, cy - 9);
+  ctx.lineTo(cx + 1, cy + 9);
+  ctx.lineTo(cx - 5, cy + 4);
+  ctx.lineTo(cx - 9, cy + 4);
+  ctx.closePath();
+  ctx.fill();
+  if (muted) {
+    ctx.beginPath();
+    ctx.moveTo(cx + 4, cy - 5); ctx.lineTo(cx + 11, cy + 5);
+    ctx.moveTo(cx + 11, cy - 5); ctx.lineTo(cx + 4, cy + 5);
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.arc(cx + 2, cy, 5, -0.9, 0.9);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx + 2, cy, 9.5, -0.9, 0.9);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 export function resultButtons(view) {
   const { w, h } = layout(view);
   const bw = Math.min(w * 0.7, 300);
