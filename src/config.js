@@ -8,8 +8,9 @@ export const TILT_RECOVER = 0.12;       // ぴったりで戻る傾き
 export const TILT_LIMIT = 1.0;          // これ以上で崩れる
 export const BPM_MIN = 80;              // テンポ(1拍ごとに針が端に着く)
 export const BPM_MAX = 240;
-export const BPM_RAMP_STEPS = 2500;     // テンポの上がり方
-export const BPM_RATE = 4;              // テンポが変わる速さ(BPM/秒)
+export const TEMPO_STEP_BLOCKS = 500;   // この段数ごとにテンポが1段階上がる
+export const BPM_RAMP_STEPS = 2500;     // 段階ごとのテンポの上がり方(最初は大きく、だんだん小さく上がる)
+export const BPM_RATE = 16;             // 段階が変わるときの切り替えの速さ(BPM/秒)
 export const SCENES = [
   { from: 0, id: 'ground', label: '地上' },
   { from: 100, id: 'sky', label: '空' },

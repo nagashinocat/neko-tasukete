@@ -6,6 +6,7 @@ import {
   drawStars, drawCloud, seeded, drawRouletteBlock, drawGlue, drawSplat,
 } from './art.js';
 import { ITEMS, ITEM_INFO } from './items.js';
+import { tempoLevel } from './tempo.js';
 
 const fmt = (n) => n.toLocaleString('ja-JP');
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -129,6 +130,9 @@ export function createRenderer() {
         fx.leanDir = game.beats - Math.round(game.beats) >= 0 ? 1 : -1; // 遅れたら右、早かったら左
         if (game.lastJudge && game.lastJudge.offset > 0.55) fx.wobbleAt = now;
       }
+      const lv = tempoLevel(game.tower.step);
+      if (lv > (fx.level || 1)) fx.levelToast = { lv, at: now };
+      fx.level = lv;
       const scene = sceneForStep(game.tower.step);
       if (scene.id !== fx.sceneId) {
         fx.sceneId = scene.id;
@@ -163,6 +167,8 @@ export function createRenderer() {
     if (game.lastHitMs == null && !game.lastItem) {
       // もう一回のとき
       fx.splats = null;
+      fx.level = 1;
+      fx.levelToast = null;
       fx.prevHitMs = null;
       fx.sceneId = 'ground';
       fx.popped = [];
@@ -405,6 +411,19 @@ export function createRenderer() {
     text(ctx, `${fmt(step)}段`, L.cx, 58, 44);
     text(ctx, `宇宙まであと ${fmt(stepsToSpace(step))}段`, L.cx, 98, 16, '#e6f0ff', 'center', 700);
     text(ctx, `自己ベスト ${fmt(game.best)}`, L.w - 14, 22, 13, '#ffe9a8', 'right', 700);
+    // テンポアップ(500段ごと)
+    if (fx.levelToast) {
+      const s = (now - fx.levelToast.at) / 1600;
+      if (s < 1) {
+        ctx.save();
+        ctx.globalAlpha = s < 0.8 ? 1 : (1 - s) / 0.2;
+        const sc = 1 + Math.max(0, 0.15 - s) * 2;
+        ctx.translate(L.cx, L.gauge.y - 70);
+        ctx.scale(sc, sc);
+        text(ctx, `テンポアップ! Lv.${fx.levelToast.lv}`, 0, 0, 26, '#ff9ecb', 'center', 900);
+        ctx.restore();
+      } else fx.levelToast = null;
+    }
     // アイテムの残り(左側)
     const st = [];
     const t = game.tower;
