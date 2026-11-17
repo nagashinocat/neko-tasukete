@@ -1,11 +1,12 @@
 import { TOTAL_STEPS } from './config.js';
 
 const fmt = (n) => n.toLocaleString('ja-JP');
+const GAME_TITLE = 'ちょっと、うちの猫ちゃんを助けてあげて';
 
 export function shareText(step) {
   return step >= TOTAL_STEPS
-    ? `だるま落としで宇宙まで到達!(${fmt(step)}段)`
-    : `だるま落としで${fmt(step)}段まで到達!`;
+    ? `「${GAME_TITLE}」で宇宙まで到達!猫ちゃんを助けた!(${fmt(step)}段)`
+    : `「${GAME_TITLE}」で${fmt(step)}段まで到達!猫ちゃんまであと${fmt(TOTAL_STEPS - step)}段`;
 }
 
 function pageUrl() {

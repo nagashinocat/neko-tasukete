@@ -3,7 +3,7 @@ import { sceneForStep, stepsToSpace } from './scenery.js';
 import { FONT, blockColor, drawBlock, drawCat, SKY_COLORS, drawStars, drawCloud, roundRect } from './art.js';
 
 const fmt = (n) => n.toLocaleString('ja-JP');
-const TITLE = 'だるま落とし';
+const TITLE = ['ちょっと、', 'うちの猫ちゃんを', '助けてあげて'];
 
 // 1080×1080 の結果カード
 export function drawShareCard(step, isBest) {
@@ -48,10 +48,12 @@ export function drawShareCard(step, isBest) {
     ctx.fillStyle = color;
     ctx.fillText(s, tx, y);
   };
-  txt(TITLE, 120, 64);
+  txt(TITLE[0], 80, 38, '#fff', 800);
+  txt(TITLE[1], 136, 50);
+  txt(TITLE[2], 200, 58, '#ffe066');
   if (top) {
     txt('宇宙到達!', 430, 110, '#ffe066');
-    txt('伝説のだるま落とし名人', 560, 44);
+    txt('猫ちゃん救出成功!', 560, 48);
   } else {
     txt(`${fmt(step)}段`, 420, step >= 1000 ? 130 : 150);
     txt('まで到達!', 540, 56);

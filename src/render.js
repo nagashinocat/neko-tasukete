@@ -479,7 +479,7 @@ export function createRenderer() {
     if (top) {
       drawCat(ctx, L.cx, L.h * 0.31, Math.min(L.w * 0.55, 240), 'happy');
       text(ctx, '宇宙到達!', L.cx, L.h * 0.36, 40, '#ffe066');
-      text(ctx, '伝説のだるま落とし名人', L.cx, L.h * 0.42, 20, '#fff');
+      text(ctx, '猫ちゃん救出成功!', L.cx, L.h * 0.42, 22, '#fff');
     } else {
       drawCat(ctx, L.cx, L.h * 0.2, Math.min(L.w * 0.34, 140), 'scared', now);
       text(ctx, 'ガラガラ…', L.cx, L.h * 0.23, 22, '#ffd0d0');

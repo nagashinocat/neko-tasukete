@@ -127,11 +127,17 @@ export function createOpening({ onDone, canSkip }) {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = '#fff';
-        ctx.font = `900 ${Math.min(L.w * 0.12, 54)}px ${FONT}`;
-        ctx.fillText('だるま落とし', L.cx, L.h * 0.2);
-        ctx.font = `700 ${Math.min(L.w * 0.045, 18)}px ${FONT}`;
+        const u = Math.min(L.w / 390, 1.3);
+        ctx.font = `800 ${26 * u}px ${FONT}`;
+        ctx.fillText('ちょっと、', L.cx, L.h * 0.11);
+        ctx.font = `900 ${36 * u}px ${FONT}`;
+        ctx.fillText('うちの猫ちゃんを', L.cx, L.h * 0.11 + 44 * u);
+        ctx.font = `900 ${44 * u}px ${FONT}`;
+        ctx.fillStyle = '#ffe066';
+        ctx.fillText('助けてあげて', L.cx, L.h * 0.11 + 96 * u);
+        ctx.font = `700 ${17 * u}px ${FONT}`;
         ctx.fillStyle = '#cfe0ff';
-        ctx.fillText('頭は、宇宙にある。', L.cx, L.h * 0.2 + 44);
+        ctx.fillText('猫は、宇宙にいる。', L.cx, L.h * 0.11 + 140 * u);
         ctx.restore();
       }
       if (canSkip) {
