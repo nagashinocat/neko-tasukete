@@ -558,63 +558,126 @@ export function createRenderer() {
     ctx.restore();
   }
 
+  // サイコロの目(1〜6)のドット
+  function pips(ctx, n, x, y, size, color) {
+    const P = {
+      1: [[0, 0]], 2: [[-1, -1], [1, 1]], 3: [[-1, -1], [0, 0], [1, 1]],
+      4: [[-1, -1], [1, -1], [-1, 1], [1, 1]], 5: [[-1, -1], [1, -1], [0, 0], [-1, 1], [1, 1]],
+      6: [[-1, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [1, 1]],
+    }[n];
+    ctx.fillStyle = color;
+    for (const [px, py] of P) {
+      ctx.beginPath();
+      ctx.arc(x + px * size * 0.3, y + py * size * 0.3, size * 0.11, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // サイコロ1個(中心 x,y、一辺 S、回転 rot)。面にアイテムと目を描く
+  function drawDie(ctx, x, y, S, rot, itemIdx, squash = 1) {
+    const info = ITEM_INFO[ITEMS[itemIdx]];
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.scale(1 / squash, squash);
+    // 厚み
+    ctx.fillStyle = '#c9c2b4';
+    roundRect(ctx, -S / 2 + 6, -S / 2 + 8, S, S, S * 0.2);
+    ctx.fill();
+    // 面
+    ctx.fillStyle = '#fffaf0';
+    roundRect(ctx, -S / 2, -S / 2, S, S, S * 0.2);
+    ctx.fill();
+    ctx.strokeStyle = '#2a2a3a';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    // アイテムの色の丸と名前
+    ctx.fillStyle = info.color;
+    ctx.beginPath();
+    ctx.arc(0, S * 0.04, S * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.font = `900 ${S * (info.label.length > 3 ? 0.13 : 0.17)}px ${FONT}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(info.label, 0, S * 0.05);
+    // 左上に小さく目の数
+    pips(ctx, itemIdx + 1, -S * 0.33, -S * 0.33, S * 0.26, '#d7263d');
+    ctx.restore();
+  }
+
   function drawRoulette(ctx, L, game, now) {
     const r = game.roulette;
     if (!r) return;
     ctx.fillStyle = 'rgba(5,6,20,0.55)';
     ctx.fillRect(0, 0, L.w, L.h);
-    const R = Math.min(L.w * 0.38, 170);
-    const cx = L.cx;
-    const cy = L.h * 0.44;
     const n = ITEMS.length;
-    const seg = (Math.PI * 2) / n;
-    text(ctx, 'アイテムルーレット', cx, cy - R - 46, 24, '#ffe066', 'center', 900);
-    for (let i = 0; i < n; i++) {
-      const a = -Math.PI / 2 + (i - r.pos) * seg;
-      const info = ITEM_INFO[ITEMS[i]];
-      ctx.fillStyle = info.color;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, R, a - seg / 2, a + seg / 2);
-      ctx.closePath();
+    const idx = ((Math.round(r.pos) % n) + n) % n;
+    const S = Math.min(L.w * 0.42, 170);
+    const floor = L.h * 0.44 + S / 2;
+    text(ctx, 'アイテムサイコロ', L.cx, L.h * 0.44 - S / 2 - 70, 26, '#ffe066', 'center', 900);
+
+    let x = L.cx;
+    let y = floor - S / 2;
+    let rot = 0;
+    let squash = 1;
+    if (!r.stopping && !r.done) {
+      // 手の中でカラカラふっている
+      y += Math.sin(now / 45) * 6 - 10;
+      x += Math.sin(now / 70) * 8;
+      rot = Math.sin(now / 60) * 0.25;
+    } else if (!r.done) {
+      // 投げられて、はねながら転がる(速いほど高くはねる)
+      const v = Math.min(1, r.vel / 14);
+      const bounce = Math.abs(Math.sin(r.pos * Math.PI)) * (20 + 90 * v);
+      y -= bounce;
+      rot = r.pos * 1.4 * v;
+      squash = bounce < 6 ? 0.88 : 1;
+    } else {
+      // 止まった:ポンとはずむ
+      const k = Math.max(0, 1 - game.rouletteHold / 0.25);
+      squash = 1 - 0.12 * k;
+    }
+    // 影
+    const lift = floor - S / 2 - y;
+    ctx.fillStyle = `rgba(0,0,0,${0.35 - Math.min(0.25, lift / 400)})`;
+    ctx.beginPath();
+    ctx.ellipse(L.cx, floor + 8, S * (0.55 - Math.min(0.2, lift / 600)), S * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    drawDie(ctx, x, y, S, rot, idx, squash);
+
+    // どの目が何か(一覧)
+    const chipW = Math.min(108, (L.w - 40) / 3);
+    const gy = floor + 34;
+    ITEMS.forEach((it, i) => {
+      const cx = L.cx + ((i % 3) - 1) * (chipW + 6);
+      const cy = gy + Math.floor(i / 3) * 34;
+      const on = r.done && i === idx;
+      ctx.fillStyle = on ? ITEM_INFO[it].color : 'rgba(255,255,255,0.14)';
+      roundRect(ctx, cx - chipW / 2, cy, chipW, 28, 14);
       ctx.fill();
-      ctx.strokeStyle = '#fff6dc';
-      ctx.lineWidth = 3;
-      ctx.stroke();
-      ctx.save();
-      ctx.translate(cx + Math.cos(a) * R * 0.64, cy + Math.sin(a) * R * 0.64);
-      ctx.rotate(a + Math.PI / 2);
-      ctx.font = `900 ${Math.min(18, R * 0.12)}px ${FONT}`;
-      ctx.textAlign = 'center';
+      if (on) {
+        ctx.strokeStyle = '#ffe066';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+      pips(ctx, i + 1, cx - chipW / 2 + 16, cy + 14, 20, on ? '#fff' : '#ffd0d8');
+      ctx.font = `800 13px ${FONT}`;
+      ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = '#fff';
-      ctx.fillText(info.label, 0, 0);
-      ctx.restore();
-    }
-    ctx.fillStyle = '#fff6dc';
-    ctx.beginPath();
-    ctx.arc(cx, cy, R * 0.16, 0, Math.PI * 2);
-    ctx.fill();
-    // 針(上)
-    ctx.fillStyle = '#ffdf5e';
-    ctx.strokeStyle = '#7a1f00';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(cx - 16, cy - R - 18);
-    ctx.lineTo(cx + 16, cy - R - 18);
-    ctx.lineTo(cx, cy - R + 14);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+      ctx.fillText(ITEM_INFO[it].label, cx - chipW / 2 + 32, cy + 15);
+    });
+
+    const ty = gy + 90;
     if (r.done) {
       const info = ITEM_INFO[r.item];
-      text(ctx, `${info.label}!`, cx, cy + R + 46, 38, info.good ? '#ffe066' : '#c8f1ff', 'center', 900);
-      text(ctx, info.desc, cx, cy + R + 86, 17, '#fff', 'center', 800);
+      text(ctx, `${info.label}!`, L.cx, ty, 34, info.good ? '#ffe066' : '#c8f1ff', 'center', 900);
+      text(ctx, info.desc, L.cx, ty + 36, 16, '#fff', 'center', 800);
     } else if (!r.stopping) {
-      const a = 0.6 + 0.4 * Math.sin(now / 200);
       ctx.save();
-      ctx.globalAlpha = a;
-      text(ctx, 'タップでストップ!', cx, cy + R + 50, 24, '#fff', 'center', 900);
+      ctx.globalAlpha = 0.6 + 0.4 * Math.sin(now / 200);
+      text(ctx, 'タップで投げる!', L.cx, ty, 24, '#fff', 'center', 900);
       ctx.restore();
     }
   }
